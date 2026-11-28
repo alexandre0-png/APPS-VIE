@@ -2,7 +2,7 @@
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
 <Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool><int name="StreamingMinRadius">128</int><int name="StreamingTargetRadius">480</int></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX57"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX56"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="ReplicatedStorage" referent="RBX58"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX57"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -19411,7 +19411,516 @@ function EggAura.newManager(factory, poolMax)
 end
 
 return EggAura
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX55"><Properties><string name="Name">Evolution</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Evolution
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX55"><Properties><string name="Name">EvolveLayout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/EvolveLayout   (interface « ✨ Évoluer » : logique PURE, testée par tests/evolveui.luau)
+-- Module pur (aucune instance Roblox, aucun require ; `Evolution` est INJECTÉ en argument) : liste des pets évoluables, aperçu des gains, doublons
+-- sacrifiés, machine d'états de la confirmation en DEUX étapes, retour visuel court (<= 1,2 s), états refusés, disposition (cibles >= 44 px), contrastes.
+-- Le client N'ENVOIE QUE l'emplacement (evoPreview) puis { i, maxCost } (evolve) : doublons, coût et interdits restent décidés par le SERVEUR
+-- (Evolution.plan). Ici : estimation de confort (même règle pure qu'Evolution), jamais une autorité. Config.EVOLUTION.enabled = false => « bientôt »,
+-- aucune action possible, aucun message envoyé. Pas de += / -= / continue, pas de math.atan2 (lanceur lupa).
+local EvolveLayout = {}
+
+EvolveLayout.MIN_TOUCH = 44
+EvolveLayout.ROW_H = 52
+EvolveLayout.CONFIRM_SECONDS = 4 -- la 2e étape expire : un appui isolé ne fait jamais évoluer
+EvolveLayout.SEND_TIMEOUT = 6 -- sans réponse du serveur : retour à l'état « prêt » (aperçu redemandé)
+EvolveLayout.FX_SECONDS = 1.0
+EvolveLayout.MAX_FX = 1.2
+EvolveLayout.PREVIEW_COOLDOWN = 0.35 -- au plus une demande d'aperçu toutes les 0,35 s côté client
+EvolveLayout.MAX_ROWS = 40
+EvolveLayout.DEFAULT_VIEWPORT = { w = 640, h = 360 }
+EvolveLayout.MIN_VIEWPORT = { w = 240, h = 320 }
+
+EvolveLayout.UI = {
+	panel = { 24, 38, 46 }, panelStroke = { 255, 210, 63 }, row = { 44, 60, 70 }, rowSel = { 70, 94, 110 }, text = { 250, 247, 238 }, muted = { 188, 204, 208 },
+	ok = { 96, 232, 120 }, warn = { 255, 196, 60 }, bad = { 255, 140, 140 }, soon = { 255, 226, 140 },
+	btnOn = { 255, 210, 63 }, btnOff = { 70, 78, 86 }, btnConfirm = { 255, 159, 28 }, btnCancel = { 255, 99, 99 },
+	darkText = { 30, 24, 0 }, offText = { 226, 228, 236 }, cancelText = { 40, 8, 8 },
+}
+
+local function isNum(v)
+	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
+end
+
+local function clamp(v, lo, hi)
+	if v < lo then
+		return lo
+	elseif v > hi then
+		return hi
+	end
+	return v
+end
+
+local function rect(x, y, w, h)
+	return { x = x, y = y, w = w, h = h }
+end
+
+---------------------------------------------------------------- configuration et gains
+
+local function cfgOf(Config)
+	return type(Config) == "table" and type(Config.EVOLUTION) == "table" and Config.EVOLUTION or nil
+end
+
+function EvolveLayout.enabled(Config)
+	local cfg = cfgOf(Config)
+	return cfg ~= nil and cfg.enabled == true
+end
+
+-- Pourcentage entier d'un multiplicateur : 1,15 -> 15 ; invalide -> 0.
+function EvolveLayout.pct(mul)
+	if not isNum(mul) then
+		return 0
+	end
+	return math.floor((mul - 1) * 100 + 0.5)
+end
+
+-- Gains affichés de la forme 2 d'un pet { p, s, m, f } : revenu avant / après (par seconde) et pourcentages. nil si le pet est inconnu.
+function EvolveLayout.gains(Config, sl)
+	local cfg = cfgOf(Config)
+	if not cfg or type(sl) ~= "table" or type(Config.PETS) ~= "table" or Config.PETS[sl.p] == nil or type(Config.petIncome) ~= "function" then
+		return nil
+	end
+	local before = Config.petIncome(sl.p, sl.s, sl.m)
+	local after = Config.petIncome(sl.p, sl.s, sl.m, 2)
+	return { incomeBefore = before, incomeAfter = after, incomePct = EvolveLayout.pct(cfg.incomeMul), powerPct = EvolveLayout.pct(cfg.powerMul) }
+end
+
+---------------------------------------------------------------- liste des pets évoluables
+
+local function tierOf(Config, sl)
+	local def = type(Config.PETS) == "table" and Config.PETS[sl.p] or nil
+	return def and def.tier or 1
+end
+
+local function tierName(Config, tier)
+	local t = type(Config.TIERS) == "table" and Config.TIERS[tier] or nil
+	return t and t.name or ("Rareté " .. tostring(tier))
+end
+
+-- Vue de l'état du joueur pour les règles pures d'Evolution : { slots, equip, battle = { team } } ; la défense PvP n'est pas envoyée au client (le serveur tranche).
+local function dataOf(state)
+	local st = type(state) == "table" and state or {}
+	local team = type(st.battle) == "table" and type(st.battle.team) == "table" and st.battle.team or {}
+	return { slots = type(st.slots) == "table" and st.slots or {}, equip = type(st.equip) == "table" and st.equip or {}, battle = { team = team } }
+end
+
+local function capOf(state)
+	local c = type(state) == "table" and state.cap
+	if isNum(c) and c >= 1 then
+		return math.floor(c)
+	end
+	return 0
+end
+
+-- Estimation (même règle pure que le serveur, sans la défense PvP ni les pièces) pour l'emplacement i : { ok, code, found, need, sac }.
+function EvolveLayout.estimate(Config, E, state, i)
+	local cfg = cfgOf(Config)
+	local need = cfg and cfg.sacrifices or 3
+	if type(E) ~= "table" or not cfg then
+		return { ok = false, code = "disabled", need = need }
+	end
+	local d, cap = dataOf(state), capOf(state)
+	local ok, code = E.targetCheck(Config, d, i, cap)
+	if not ok then
+		return { ok = false, code = code, need = need }
+	end
+	local sac, found = E.pickSacrifices(Config, d, i, cap)
+	if not sac then
+		return { ok = false, code = "dupes", found = found or 0, need = need }
+	end
+	return { ok = true, code = nil, sac = sac, need = need }
+end
+
+-- Liste des pets de la base : { i, p, name, emoji, tier, tierName, form, status, code, found, need, income, incomeAfter, tag }.
+--   status : "ready" (évolution possible d'après l'estimation), "dupes" (pas assez de doublons), "locked" (interdit : suiveur, équipe, taille, mutation...),
+--   "done" (déjà en forme 2). Ordre : prêts d'abord, puis doublons manquants, interdits, forme 2 ; à égalité rareté décroissante puis indice.
+function EvolveLayout.list(Config, E, state)
+	local rows = {}
+	local st = type(state) == "table" and state or {}
+	local slots = type(st.slots) == "table" and st.slots or {}
+	local cap = capOf(st)
+	for i = 1, math.min(cap, EvolveLayout.MAX_ROWS) do
+		local sl = slots[i]
+		if type(sl) == "table" and sl.k == "p" and type(Config.PETS) == "table" and Config.PETS[sl.p] ~= nil then
+			local def = Config.PETS[sl.p]
+			local form = (sl.f == 2) and 2 or 1
+			local row = { i = i, p = sl.p, name = tostring(def.name or "?"), emoji = tostring(def.emoji or "?"), tier = tierOf(Config, sl), form = form, size = sl.s, mut = sl.m }
+			row.tierName = tierName(Config, row.tier)
+			local g = EvolveLayout.gains(Config, sl)
+			row.income = g and g.incomeBefore or 0
+			row.incomeAfter = g and g.incomeAfter or 0
+			if form == 2 then
+				row.status, row.code, row.tag = "done", "already", "★2"
+				row.income = g and g.incomeAfter or 0
+			else
+				local est = EvolveLayout.estimate(Config, E, st, i)
+				row.need, row.found = est.need, est.found
+				if est.ok then
+					row.status, row.tag = "ready", "✨ Prêt"
+				elseif est.code == "dupes" then
+					row.status, row.code, row.tag = "dupes", "dupes", "Doublons " .. tostring(est.found or 0) .. "/" .. tostring(est.need)
+				else
+					row.status, row.code, row.tag = "locked", est.code, "🔒"
+				end
+			end
+			rows[#rows + 1] = row
+		end
+	end
+	local rank = { ready = 1, dupes = 2, locked = 3, done = 4 }
+	table.sort(rows, function(a, b)
+		if rank[a.status] ~= rank[b.status] then
+			return rank[a.status] < rank[b.status]
+		end
+		if a.tier ~= b.tier then
+			return a.tier > b.tier
+		end
+		return a.i < b.i
+	end)
+	return rows
+end
+
+function EvolveLayout.countReady(rows)
+	local n = 0
+	for _, r in ipairs(type(rows) == "table" and rows or {}) do
+		if r.status == "ready" then
+			n = n + 1
+		end
+	end
+	return n
+end
+
+-- Texte d'en-tête : « bientôt » quand la fonction est coupée ; sinon règle courte et nombre de pets prêts.
+function EvolveLayout.header(Config, rows)
+	local cfg = cfgOf(Config)
+	if not cfg or cfg.enabled ~= true then
+		return { soon = true, title = "✨ Évolution", subtitle = "Bientôt disponible : fais évoluer tes pets en forme 2.", rule = "" }
+	end
+	local ready = EvolveLayout.countReady(rows)
+	local rule = (cfg.sacrifices or 3) .. " doublons de même rareté + " .. math.floor((cfg.costSeconds or 300) / 60 + 0.5) .. " min de revenus"
+	local sub
+	if #(rows or {}) == 0 then
+		sub = "Fais d'abord éclore des pets."
+	elseif ready == 0 then
+		sub = "Aucun pet prêt : il te faut " .. (cfg.sacrifices or 3) .. " doublons de la même rareté."
+	else
+		sub = ready == 1 and "1 pet prêt à évoluer." or (ready .. " pets prêts à évoluer.")
+	end
+	return { soon = false, title = "✨ Évolution", subtitle = sub, rule = rule }
+end
+
+---------------------------------------------------------------- textes de refus
+
+-- Message d'un code de refus (celui du serveur : Evolution.REFUSE) ; `view` ajoute le nombre de doublons trouvés ou le prix.
+function EvolveLayout.refuseText(E, code, view)
+	local R = type(E) == "table" and type(E.REFUSE) == "table" and E.REFUSE or {}
+	if code == "dupes" and type(view) == "table" and isNum(view.found) and isNum(view.need) then
+		return "Doublons : " .. math.floor(view.found) .. "/" .. math.floor(view.need) .. ". Il faut " .. math.floor(view.need) .. " doublons de la même rareté (jamais le dernier exemplaire d'une espèce)."
+	elseif code == "coins" and type(view) == "table" and isNum(view.cost) then
+		return "Pas assez de pièces : il en faut " .. math.floor(view.cost) .. " (5 min de revenus)."
+	end
+	return R[code] or R.slot or "Choisis un pet de ta base."
+end
+
+---------------------------------------------------------------- doublons sacrifiés (choix du serveur, affichage et vérification côté client)
+
+-- Pastilles des doublons : { { i, emoji, name, tierName } } pour la liste `sac` de l'aperçu du serveur.
+function EvolveLayout.sacChips(Config, state, sac)
+	local out = {}
+	local slots = type(state) == "table" and type(state.slots) == "table" and state.slots or {}
+	for _, j in ipairs(type(sac) == "table" and sac or {}) do
+		local sl = slots[j]
+		local def = type(sl) == "table" and type(Config.PETS) == "table" and Config.PETS[sl.p] or nil
+		if def then
+			out[#out + 1] = { i = j, emoji = tostring(def.emoji or "?"), name = tostring(def.name or "?"), tierName = tierName(Config, def.tier or 1) }
+		else
+			out[#out + 1] = { i = j, emoji = "?", name = "?", tierName = "" }
+		end
+	end
+	return out
+end
+
+-- Vérification de confort de la liste de doublons proposée par le serveur (jamais une autorité) : exactement `need` emplacements distincts, tous des pets de
+-- la même rareté que le pet visé, jamais le pet visé lui-même. Retourne (true) ou (false, motif).
+function EvolveLayout.validateSelection(Config, state, i, sac, need)
+	local slots = type(state) == "table" and type(state.slots) == "table" and state.slots or {}
+	local target = slots[i]
+	if type(target) ~= "table" or target.k ~= "p" or type(Config.PETS) ~= "table" or Config.PETS[target.p] == nil then
+		return false, "target"
+	end
+	if type(sac) ~= "table" or not isNum(need) or #sac ~= need then
+		return false, "count"
+	end
+	local tier = Config.PETS[target.p].tier
+	local seen = {}
+	for _, j in ipairs(sac) do
+		if not isNum(j) or j % 1 ~= 0 or j == i or seen[j] then
+			return false, "dup"
+		end
+		seen[j] = true
+		local sl = slots[j]
+		if type(sl) ~= "table" or sl.k ~= "p" or type(Config.PETS[sl.p]) ~= "table" or Config.PETS[sl.p].tier ~= tier then
+			return false, "tier"
+		end
+	end
+	return true
+end
+
+---------------------------------------------------------------- machine d'états : sélection -> aperçu -> confirmation en deux étapes -> envoi -> retour visuel
+
+function EvolveLayout.newFlow()
+	return { phase = "idle", i = nil, view = nil, armedAt = nil, sentAt = nil, doneAt = nil, previewAt = nil, msg = nil, done = nil }
+end
+
+-- Appui sur une ligne : (re)demande l'aperçu. Pas pendant l'envoi ni le retour visuel. Retourne (flow, action) ; action = { kind = "preview", i } ou nil
+-- (nil si la fonction est coupée, si l'emplacement est invalide ou si la dernière demande est trop récente).
+function EvolveLayout.select(flow, i, now, enabled)
+	if enabled ~= true or not isNum(i) or i % 1 ~= 0 or i < 1 or flow.phase == "sending" or flow.phase == "done" then
+		return flow, nil
+	end
+	local t = isNum(now) and now or 0
+	if flow.i == i and (flow.phase == "loading" or flow.phase == "ready" or flow.phase == "confirm") then
+		return flow, nil
+	end
+	if isNum(flow.previewAt) and t - flow.previewAt < EvolveLayout.PREVIEW_COOLDOWN and flow.i ~= i then
+		flow.i, flow.view, flow.phase, flow.armedAt, flow.msg = i, nil, "loading", nil, nil
+		flow.pending = true -- demande différée : le client la relance après le délai (voir EvolveLayout.due)
+		return flow, nil
+	end
+	flow.i, flow.view, flow.phase, flow.armedAt, flow.msg, flow.pending = i, nil, "loading", nil, nil, nil
+	flow.previewAt = t
+	return flow, { kind = "preview", i = i }
+end
+
+-- Demande d'aperçu différée à relancer ? Retourne l'action ou nil.
+function EvolveLayout.due(flow, now)
+	if flow.pending and flow.phase == "loading" and flow.i and isNum(now) and isNum(flow.previewAt) and now - flow.previewAt >= EvolveLayout.PREVIEW_COOLDOWN then
+		flow.pending = nil
+		flow.previewAt = now
+		return { kind = "preview", i = flow.i }
+	end
+	return nil
+end
+
+-- Aperçu reçu du serveur ({ ok, i, sac, cost, need } ou { ok = false, code, ... }) : ignoré s'il ne concerne pas le pet choisi ou si la phase ne l'attend pas.
+function EvolveLayout.onPreview(flow, view, now)
+	if type(view) ~= "table" or flow.i == nil or view.i ~= flow.i then
+		return flow
+	end
+	if flow.phase ~= "loading" and flow.phase ~= "ready" and flow.phase ~= "confirm" and flow.phase ~= "sending" and flow.phase ~= "refused" then
+		return flow
+	end
+	flow.view = view
+	flow.armedAt, flow.sentAt = nil, nil
+	if view.ok == true and type(view.sac) == "table" and isNum(view.cost) then
+		flow.phase, flow.msg = "ready", nil
+	else
+		flow.phase, flow.msg = "refused", view.code or "slot"
+	end
+	return flow
+end
+
+-- Appui sur le bouton principal. ready -> confirm (1re étape) ; confirm -> sending (2e étape, action evolve avec le prix vu) ; sinon rien.
+-- Retourne (flow, action) ; action = { kind = "evolve", i, maxCost } ou nil.
+function EvolveLayout.press(flow, now, enabled)
+	if enabled ~= true then
+		return flow, nil
+	end
+	local t = isNum(now) and now or 0
+	if flow.phase == "ready" and type(flow.view) == "table" then
+		flow.phase, flow.armedAt = "confirm", t
+		return flow, nil
+	elseif flow.phase == "confirm" and type(flow.view) == "table" then
+		if isNum(flow.armedAt) and t - flow.armedAt <= EvolveLayout.CONFIRM_SECONDS then
+			flow.phase, flow.sentAt = "sending", t
+			return flow, { kind = "evolve", i = flow.i, maxCost = flow.view.cost }
+		end
+		flow.phase, flow.armedAt = "ready", nil
+	end
+	return flow, nil
+end
+
+-- Annule la confirmation (bouton « Annuler ») : retour à « prêt ». Sans effet pendant l'envoi.
+function EvolveLayout.cancel(flow)
+	if flow.phase == "confirm" then
+		flow.phase, flow.armedAt = "ready", nil
+	end
+	return flow
+end
+
+-- Remise à zéro complète (fermeture de l'écran, pet disparu).
+function EvolveLayout.reset(flow)
+	flow.phase, flow.i, flow.view, flow.armedAt, flow.sentAt, flow.doneAt, flow.msg, flow.pending, flow.done = "idle", nil, nil, nil, nil, nil, nil, nil, nil
+	return flow
+end
+
+-- Écoulement du temps : la 2e étape expire (confirm -> ready), l'envoi sans réponse revient à « prêt » avec un message, le retour visuel prend fin.
+-- Retourne (flow, action) : action = { kind = "preview", i } quand l'envoi expire (l'aperçu est redemandé pour resynchroniser).
+function EvolveLayout.tick(flow, now)
+	local t = isNum(now) and now or 0
+	if flow.phase == "confirm" and isNum(flow.armedAt) and t - flow.armedAt > EvolveLayout.CONFIRM_SECONDS then
+		flow.phase, flow.armedAt = "ready", nil
+	elseif flow.phase == "sending" and isNum(flow.sentAt) and t - flow.sentAt > EvolveLayout.SEND_TIMEOUT then
+		flow.phase, flow.sentAt, flow.msg = "loading", nil, "timeout"
+		flow.previewAt = t
+		return flow, { kind = "preview", i = flow.i }
+	elseif flow.phase == "done" and isNum(flow.doneAt) and t - flow.doneAt >= EvolveLayout.FX_SECONDS then
+		EvolveLayout.reset(flow)
+	end
+	return flow, nil
+end
+
+-- Réponse « done » du serveur ({ k = "done", i, p, n }) : retour visuel (<= 1,2 s) puis retour au repos.
+function EvolveLayout.onDone(flow, msg, now)
+	if type(msg) ~= "table" or flow.i == nil or msg.i ~= flow.i or flow.phase ~= "sending" then
+		return flow
+	end
+	flow.phase, flow.doneAt, flow.done, flow.armedAt, flow.sentAt = "done", isNum(now) and now or 0, { i = msg.i, p = msg.p, n = msg.n }, nil, nil
+	return flow
+end
+
+-- Bouton principal : { text, active, kind } d'après la phase, le coût de l'aperçu et l'interrupteur. Jamais actif si la fonction est coupée.
+function EvolveLayout.button(flow, enabled, E)
+	local view = flow.view
+	if enabled ~= true then
+		return { text = "Bientôt disponible", active = false, kind = "soon", cancel = false }
+	end
+	local ph = flow.phase
+	if ph == "ready" and type(view) == "table" then
+		return { text = "✨ Évoluer (" .. math.floor(view.cost or 0) .. " 🪙)", active = true, kind = "ready", cancel = false }
+	elseif ph == "confirm" and type(view) == "table" then
+		return { text = "Confirmer : " .. math.floor(view.need or 3) .. " doublons + " .. math.floor(view.cost or 0) .. " 🪙", active = true, kind = "confirm", cancel = true }
+	elseif ph == "loading" then
+		return { text = "Vérification…", active = false, kind = "loading", cancel = false }
+	elseif ph == "sending" then
+		return { text = "Évolution…", active = false, kind = "sending", cancel = false }
+	elseif ph == "done" then
+		return { text = "✨ Évolué !", active = false, kind = "done", cancel = false }
+	elseif ph == "refused" then
+		return { text = "✖ " .. EvolveLayout.refuseText(E, flow.msg, view), active = false, kind = "refused", cancel = false }
+	end
+	return { text = "Choisis un pet", active = false, kind = "idle", cancel = false }
+end
+
+-- Résumé du pet choisi : { gains, sac chips, lignes de texte } pour le panneau de détail (nil si aucun pet choisi).
+function EvolveLayout.detail(Config, state, flow)
+	if flow.i == nil then
+		return nil
+	end
+	local slots = type(state) == "table" and type(state.slots) == "table" and state.slots or {}
+	local sl = slots[flow.i]
+	if type(sl) ~= "table" or sl.k ~= "p" then
+		return nil
+	end
+	local g = EvolveLayout.gains(Config, sl)
+	if not g then
+		return nil
+	end
+	local def = Config.PETS[sl.p]
+	local lines = {
+		"Revenu : +" .. g.incomePct .. " % (" .. string.format("%.1f", g.incomeBefore) .. " → " .. string.format("%.1f", g.incomeAfter) .. " /s)",
+		"Force en combat : +" .. g.powerPct .. " % (pv et attaque)",
+	}
+	local chips = {}
+	if type(flow.view) == "table" and type(flow.view.sac) == "table" then
+		chips = EvolveLayout.sacChips(Config, state, flow.view.sac)
+	end
+	return { name = tostring(def.name or "?"), emoji = tostring(def.emoji or "?"), gains = g, lines = lines, chips = chips }
+end
+
+---------------------------------------------------------------- retour visuel court (propriétés mesurables)
+
+-- Image du retour d'évolution à l'instant a (0..1) : échelle 1 -> 1,25 -> 1 (rebond), halo qui s'éteint, texte « ★2 » qui apparaît ; extrémités exactes.
+function EvolveLayout.fx(a)
+	local k = isNum(a) and clamp(a, 0, 1) or 1
+	local pulse = math.sin(math.pi * k)
+	local halo = 1 - k
+	local starA = clamp(k * 3, 0, 1)
+	return { scale = 1 + 0.25 * pulse, haloAlpha = halo, haloTransparency = 1 - halo * 0.7, starAlpha = starA }
+end
+
+function EvolveLayout.fxSeconds(reduced)
+	return reduced == true and 0.5 or EvolveLayout.FX_SECONDS
+end
+
+---------------------------------------------------------------- disposition
+
+function EvolveLayout.viewport(vw, vh)
+	local d, m = EvolveLayout.DEFAULT_VIEWPORT, EvolveLayout.MIN_VIEWPORT
+	local w = isNum(vw) and vw > 0 and vw or d.w
+	local h = isNum(vh) and vh > 0 and vh or d.h
+	return math.floor(math.max(m.w, w)), math.floor(math.max(m.h, h))
+end
+
+-- Rectangles (pixels, relatifs à la fenêtre) : panneau centré, en-tête, fermeture, liste défilante, détail, bouton principal, bouton annuler.
+-- Garanties testées : tout dans la fenêtre moins la zone sûre, boutons >= 44 px, aucune superposition entre liste, détail et boutons.
+function EvolveLayout.rects(vw, vh, safeIn)
+	vw, vh = EvolveLayout.viewport(vw, vh)
+	local s = type(safeIn) == "table" and safeIn or {}
+	local sl, st, sr, sb = clamp(isNum(s.l) and s.l or 0, 0, vw * 0.25), clamp(isNum(s.t) and s.t or 0, 0, vh * 0.25), clamp(isNum(s.r) and s.r or 0, 0, vw * 0.25), clamp(isNum(s.b) and s.b or 0, 0, vh * 0.25)
+	local m = 8
+	local ax0, ay0, ax1, ay1 = sl + m, st + m, vw - sr - m, vh - sb - m
+	local aw, ah = ax1 - ax0, ay1 - ay0
+	local pw = math.floor(math.min(aw, 440))
+	local ph = math.floor(math.min(ah, 520))
+	local px = math.floor(ax0 + (aw - pw) / 2)
+	local py = math.floor(ay0 + (ah - ph) / 2)
+	local pad, gap, T = 10, 6, EvolveLayout.MIN_TOUCH
+	local out = { vw = vw, vh = vh, panel = rect(px, py, pw, ph) }
+	out.close = rect(px + pw - pad - T, py + pad, T, T)
+	out.header = rect(px + pad, py + pad, pw - 2 * pad - T - gap, T)
+	out.subtitle = rect(px + pad, py + pad + T + 2, pw - 2 * pad, 34)
+	local footerH = T + 4
+	local detailH = ph >= 420 and 118 or 86
+	local topH = pad + T + 2 + 34 + gap -- en-tête et sous-titre
+	detailH = math.max(52, math.min(detailH, ph - topH - pad - footerH - 2 * gap - EvolveLayout.ROW_H)) -- fenêtre basse : le détail cède de la place, la liste garde une ligne entière
+	local by = py + ph - pad - footerH
+	out.cancel = rect(px + pad, by, math.floor((pw - 2 * pad - gap) * 0.32), footerH)
+	out.primary = rect(out.cancel.x + out.cancel.w + gap, by, pw - 2 * pad - gap - out.cancel.w, footerH)
+	out.detail = rect(px + pad, by - gap - detailH, pw - 2 * pad, detailH)
+	local ly = out.subtitle.y + out.subtitle.h + gap
+	out.list = rect(px + pad, ly, pw - 2 * pad, math.max(EvolveLayout.ROW_H, out.detail.y - gap - ly))
+	out.rowH = EvolveLayout.ROW_H
+	out.area = rect(ax0, ay0, aw, ah)
+	return out
+end
+
+function EvolveLayout.overlap(a, b)
+	return a.x < b.x + b.w and b.x < a.x + a.w and a.y < b.y + b.h and b.y < a.y + a.h
+end
+
+-- Nombre de lignes entièrement visibles dans la liste ; la liste défile au-delà.
+function EvolveLayout.visibleRows(r)
+	return math.max(1, math.floor(r.list.h / r.rowH))
+end
+
+---------------------------------------------------------------- contraste (accessibilité : jamais la couleur seule, texte >= 4,5:1)
+
+local function lin(c)
+	local v = c / 255
+	if v <= 0.03928 then
+		return v / 12.92
+	end
+	return ((v + 0.055) / 1.055) ^ 2.4
+end
+function EvolveLayout.luminance(rgb)
+	return 0.2126 * lin(rgb[1]) + 0.7152 * lin(rgb[2]) + 0.0722 * lin(rgb[3])
+end
+function EvolveLayout.contrast(a, b)
+	local la, lb = EvolveLayout.luminance(a), EvolveLayout.luminance(b)
+	return (math.max(la, lb) + 0.05) / (math.min(la, lb) + 0.05)
+end
+-- Couples (texte, fond) réellement affichés ; chacun doit atteindre 4,5:1 (testé).
+function EvolveLayout.textPairs()
+	local U = EvolveLayout.UI
+	return {
+		{ "titre", U.text, U.panel }, { "sous-titre", U.muted, U.panel }, { "ligne", U.text, U.row }, { "ligne choisie", U.text, U.rowSel },
+		{ "prêt", U.ok, U.row }, { "doublons manquants", U.warn, U.row }, { "interdit", U.bad, U.row }, { "bientôt", U.soon, U.panel },
+		{ "bouton actif", U.darkText, U.btnOn }, { "bouton inactif", U.offText, U.btnOff }, { "confirmer", U.darkText, U.btnConfirm }, { "annuler", U.cancelText, U.btnCancel },
+		{ "détail", U.text, U.panel },
+	}
+end
+
+return EvolveLayout
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX56"><Properties><string name="Name">Evolution</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Evolution
 -- IDÉE 2 (coffre IDEES_CHIPE_OEUFS) : évolution d'un pet en « forme 2 ». Logique PURE : aucune API Roblox, aucun yield, aucune erreur levée sur une
 -- entrée invalide (valeurs de retour). Testé par tests/evolution.luau (Lune ou lupa). Le serveur (Main) n'appelle que plan / stage / stillValid / apply.
 --
@@ -19772,7 +20281,7 @@ Evolution.REFUSE = {
 
 return Evolution
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX71"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX58"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
+<Item class="ServerScriptService" referent="RBX72"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX59"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
 -- Logique serveur complète de Chipe-Œufs (le serveur décide de tout, le client ne fait qu'afficher).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -26435,7 +26944,7 @@ task.spawn(function()
 end)
 
 print("[Chipe-Œufs] serveur prêt")
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX59"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX60"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
 -- Sauvegarde DataStore avec VERROU DE SESSION (un joueur ne peut pas être chargé sur 2 serveurs à la fois :
 -- empêche les pertes et duplications quand on change de serveur vite) + classement global.
 -- Les emplacements vides valent `false` (un tableau JSON ne supporte pas les trous).
@@ -27456,7 +27965,7 @@ function Data.pvpTop(season, count)
 end
 
 return Data
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX60"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX61"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
 -- Construit TOUT le visuel avec des Parts, matériaux et particules de base Roblox (aucun asset externe).
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
@@ -30384,7 +30893,7 @@ function Builder.clearPrivateBelt(plot)
 end
 
 return Builder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX61"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX62"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
 -- Règles de jeu PURES (aucun service Roblox) : tirages, revenus, durées, capacités.
 -- Config est injectée (Rules.new(Config)) pour que ces règles se testent hors de Roblox (Lune, voir tests/run.luau).
 local Rules = {}
@@ -30553,7 +31062,7 @@ function Rules.new(Config)
 end
 
 return Rules
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX62"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX63"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
 -- Classement pur des erreurs de services Roblox (testé hors Roblox). Aucune dépendance.
 local Diag = {}
 
@@ -30566,7 +31075,7 @@ function Diag.isStudioApiError(err)
 end
 
 return Diag
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX63"><Properties><string name="Name">HenQuest</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HenQuest
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX64"><Properties><string name="Name">HenQuest</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HenQuest
 -- REFONTE lot 6 : énigme de la Mère Poule côté SERVEUR (étapes guidées : plumes, runes, berceuse). Toutes les règles sont dans ReplicatedStorage/Riddle (pur,
 -- testé) ; ici : l'état par joueur, les prompts, les 4 plumes du jour, la récompense, l'effet collectif et le journal.
 -- Principe : le client n'envoie que des INTENTIONS (« Parler », « Ramasser », toucher une pierre, 4 boutons du dialogue) ; chaque distance, chaque étape,
@@ -31085,7 +31594,7 @@ function HenQuest.new(ctx)
 end
 
 return HenQuest
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX64"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX65"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
 -- Décor de la carte (REFONTE lot 2 : carte 700 x 500, géométrie de MapGeo) : place du marché, territoires, chemins, eau, château, arène, relief,
 -- secrets. Tout en Parts de base ; les outils de construction de Builder sont injectés (h.part, h.ball, h.tree, h.torch, h.sign). Chaque fonction
 -- retourne le nombre de Parts créées (budget mobile).
@@ -31829,7 +32338,7 @@ function Scenery.secrets(h, parent, cfg)
 end
 
 return Scenery
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX65"><Properties><string name="Name">Kiosk</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Kiosk
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX66"><Properties><string name="Name">Kiosk</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Kiosk
 -- LOT 8B-kiosque : KIOSQUE CENTRAL de la place (comptoir face à la halle). Modèle Blender hub.kiosk (id 90238570290603) avec REPLI PROCEDURAL obligatoire :
 -- si le chargement échoue (Assets désactivé, délai, modèle vide, trop lourd, mal dimensionné), un kiosque en Parts de base est construit à la place, avec les
 -- mêmes noms de panneaux, donc les mêmes prompts. 4 interactions par ProximityPrompt (étiquetés « KioskPrompt », attribut KioskAction) :
@@ -32494,7 +33003,7 @@ function Kiosk.handle(player, action, ctx)
 end
 
 return Kiosk
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX66"><Properties><string name="Name">Sellers</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Sellers
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX67"><Properties><string name="Name">Sellers</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Sellers
 -- LOT 16 : 8 VENDEURS PNJ du hub, un par catégorie de la boutique du kiosque. Modèle Blender par vendeur (SellersData.VENDORS[i].asset) avec REPLI
 -- PROCEDURAL obligatoire (étal simple + silhouette + enseigne), mêmes noms de pièces (Etiquette, Lueur), donc mêmes prompts. Ils ne bougent pas, n'interpellent
 -- jamais. Chaque vendeur porte une étiquette flottante (BillboardGui, 60 studs) et un ProximityPrompt « Parler » qui ouvre la boutique du kiosque sur son onglet.
@@ -32998,7 +33507,7 @@ function Sellers.handle(player, action, ctx)
 end
 
 return Sellers
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX67"><Properties><string name="Name">PvpLive</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/PvpLive
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX68"><Properties><string name="Name">PvpLive</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/PvpLive
 -- LOT 14 : transport du classé en direct. Toutes les décisions sont dans ReplicatedStorage/Shared/Ranked (pur) ; ce module ne fait que
 -- les appliquer avec un RUNTIME INJECTÉ (tests : faux runtime de tests/lot14.luau ; jeu : PvpLive.robloxRuntime, MemoryStore + TeleportService).
 -- Aucun yield ici en dehors des appels au runtime ; chaque appel réseau est dans un pcall (une panne MemoryStore = un tour sans effet,
@@ -33694,7 +34203,7 @@ function PvpLive.robloxRuntime(Config, hooks)
 end
 
 return PvpLive
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX68"><Properties><string name="Name">Decor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Decor
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX69"><Properties><string name="Name">Decor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Decor
 -- Lot 8B-décor : pose des modèles Blender de DÉCOR DE CARTE (lots 15, 16, 17) avec repli procédural. Données : ReplicatedStorage/Shared/DecorData.
 --   Decor.plan(G, config, data, deps)          : plan PUR (aucun Instance) : positions, rotations, empreintes ; déterministe ; testé hors de Roblox.
 --   Decor.build(parent, G, config, deps)       : charge les modèles manquants (Assets.loadMany : lots parallèles, délai, un nouvel essai), pose chaque exemplaire
@@ -34920,7 +35429,7 @@ function Decor.refresh(handle)
 end
 
 return Decor
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX69"><Properties><string name="Name">HouseDecor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HouseDecor   (lot 8B-meubles, NON INTÉGRÉ : voir roblox/HOUSEDECOR_INTEGRATION_NOTES.md)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX70"><Properties><string name="Name">HouseDecor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HouseDecor   (lot 8B-meubles, NON INTÉGRÉ : voir roblox/HOUSEDECOR_INTEGRATION_NOTES.md)
 -- Place le décor intérieur d'une maison selon son niveau (données : ReplicatedStorage/Shared/HouseDecorData).
 --   HouseDecor.apply(houseModel, level, config) -> rapport { placed, kept, removed, loaded, fallback, parts }
 --   * idempotent : rappeler apply avec le même niveau ne crée rien ; monter de niveau ajoute seulement le nouveau décor ;
@@ -35149,7 +35658,7 @@ function HouseDecor.resetCache()
 end
 
 return HouseDecor
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX70"><Properties><string name="Name">Telemetry</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Telemetry
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX71"><Properties><string name="Name">Telemetry</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Telemetry
 -- LOT 9 : 12 métriques de rythme envoyées à AnalyticsService (Creator Hub > Analytics), SANS donnée personnelle (aucun nom, aucun identifiant
 -- en champ : AnalyticsService rattache lui-même l'événement au joueur). Tout appel est sous pcall ; service indisponible (Studio, panne) = rien.
 -- Débit : au plus 1 événement par seconde et par joueur (file de 16 par joueur, la plus ancienne jetée au-delà), vidée par Telemetry.step.
@@ -35375,7 +35884,7 @@ end
 
 return Telemetry
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX92"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX91"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX72"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
+<Item class="StarterPlayer" referent="RBX94"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX93"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX73"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
 -- Interface 100 % générée par code (aucune image à importer).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -38466,6 +38975,12 @@ pcall(function()
 	})
 end)
 
+-- Lot 17 (idée 2) : écran « ✨ Évoluer » (désactivé tant que Config.EVOLUTION.enabled = false : affiche « bientôt », aucun envoi). Logique pure : Shared/EvolveLayout.
+pcall(function()
+	local Shared = ReplicatedStorage:WaitForChild("Shared")
+	require(script.Parent:WaitForChild("EvolveUi")).start({ Config = Config, Evolution = require(Shared:WaitForChild("Evolution")), Layout = require(Shared:WaitForChild("EvolveLayout")), player = player, gui = gui, FONT = FONT, RAction = RAction, REvo = L15.REvo, playSound = playSound, getState = function() return state end, reduced = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled })
+end)
+
 -- LOT 13 : invite « Défier » (touche G) au-dessus des autres joueurs, créée LOCALEMENT (visible de ce client seul) ; elle n'envoie qu'un userId : le serveur
 -- revalide distance, états, cooldown et réglage. Touche distincte de E : ne masque jamais les invites des œufs et des nids.
 pcall(function()
@@ -38592,7 +39107,7 @@ do
 		end
 	end)
 end
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX73"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX74"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
 -- Animations locales (aucun coût réseau). Chaque animation est activable dans Config.Animations et exécutée par Easing.guard :
 -- sous pcall, et désactivée pour la session si elle lève une erreur. Les valeurs (courbes, phases, confettis) viennent du module
 -- pur Easing, testé hors de Roblox. Aucune animation n'est nécessaire au gameplay.
@@ -39154,7 +39669,7 @@ Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
 		end)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX74"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX75"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
 -- Cinématiques courtes, aux moments clés seulement : intro (la ferme, Mère Poule, les œufs, le but) et mini tutoriel au premier lancement,
 -- première zone débloquée, premier pet rare. Toutes skippables (bouton, Entrée, manette B), réglables dans Config.Cinematics, exécutées
 -- sous pcall (Easing.guard), et JAMAIS bloquantes : le joueur garde le contrôle de son personnage, le jeu continue, la caméra est
@@ -39806,7 +40321,7 @@ replay.Event:Connect(function(kind)
 		begin("tutorial", Config.CINE.tutorial, {}, false)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX75"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX76"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
 -- Ambiance propre à chaque zone : en entrant dans un domaine (ou en revenant à l'arène), l'éclairage, l'atmosphère et la teinte de l'image
 -- glissent doucement vers les réglages de Config.LIGHTING (zone de lumière : Config.lightingZoneAt ; modification locale : n'affecte que ce joueur). Coupable avec
 -- Config.Animations.zoneAmbience. Une erreur désactive l'ambiance pour la session sans gêner le jeu.
@@ -39952,7 +40467,7 @@ task.spawn(function()
 		task.wait(0.5)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX76"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Culling
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX77"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Culling
 -- Masque les zones (territoires) éloignées du joueur : au-delà de Config.Culling.cullAt studs du bord d'une zone, ses Parts passent en transparence locale totale
 -- (LocalTransparencyModifier = 1) et ses lumières, particules, faisceaux, feux et étiquettes sont coupés ; en dessous de showAt, tout revient. Rien n'est détruit ni
 -- déplacé : les collisions et la réplication serveur ne changent pas. Découpé en lots par image, coupé par Config.Culling.enabled = false.
@@ -40035,7 +40550,7 @@ task.spawn(function()
 		end
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX77"><Properties><string name="Name">LightLod</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/LightLod
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX78"><Properties><string name="Name">LightLod</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/LightLod
 -- Niveau de détail des effets (lot graphismes, budget mobile) : au plus Config.GRAPHICS.perf.maxPointLights PointLight de la carte sont allumées (les plus proches de la
 -- caméra, à moins de lightRange studs, choix de Graphics.selectLights) ; les émetteurs de particules, faisceaux, feux, fumées et étincelles au-delà de fxCullAt studs sont
 -- coupés et rallumés sous fxShowAt (hystérésis de Culling.decide). Rien n'est détruit ni déplacé ; seules les propriétés Enabled changent, et SEULEMENT pour les objets que ce
@@ -40147,7 +40662,7 @@ task.spawn(function()
 		end
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX78"><Properties><string name="Name">EggAura</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/EggAura (lot graphismes 4 : halos d'œufs et bulles de protection).
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX79"><Properties><string name="Name">EggAura</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/EggAura (lot graphismes 4 : halos d'œufs et bulles de protection).
 -- Applique ReplicatedStorage/EggAura (pur, testé) : chaque œuf taggé « EggAura » par Builder.egg (tapis, portés, posés, nids) reçoit, s'il est parmi les plus
 -- proches de la caméra, un halo néon de la couleur de sa rareté (pulsation lente) ; un œuf protégé (attribut ShieldUntil dans le futur : bouclier de base ;
 -- attribut Guarded : nid surveillé par un gardien) reçoit en plus une bulle translucide. AUCUNE PointLight (budget de LightLod : <= 4 allumées).
@@ -40322,7 +40837,7 @@ conn = RunService.RenderStepped:Connect(function()
 		folder:Destroy()
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX79"><Properties><string name="Name">Music</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Music (graphismes 9 : musique par zone). Applique ReplicatedStorage/Music (pur, testé).
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX80"><Properties><string name="Name">Music</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Music (graphismes 9 : musique par zone). Applique ReplicatedStorage/Music (pur, testé).
 -- Une piste par zone (hub, arène, château) d'après Config.lightingZoneAt, volume bas (Config.MUSIC.volume, plafond 0,3), fondus enchaînés, coupée pendant un combat
 -- (panneau ArenaPanel de BattleGui visible : lu, jamais modifié), respect de Config.SOUNDS_ENABLED et du volume général du menu Plus (attribut local MasterVolume
 -- posé par Client.client.lua ; 0 = muet). Sans aucune piste approuvée (ids vides), le script s'arrête aussitôt : prêt mais muet, aucun Sound créé.
@@ -40397,7 +40912,7 @@ while true do
 		break
 	end
 end
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX80"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX81"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
 -- Effet de révélation d'un œuf, 100 % dessiné par le code (Frames, UIGradient, UIStroke, UICorner, TweenService) : étoile lumineuse centrale
 -- colorée selon la rareté, halo, rayons qui tournent, anneaux qui s'étendent, étincelles, libellé « ŒUF SECRET ». Aucun asset externe.
 -- Le style (nombre de rayons, d'anneaux, de particules) vient de Reveal.style : l'option mobile le réduit. Aucune erreur ne sort d'ici.
@@ -40512,7 +41027,7 @@ function RevealFx.play(parent, style, center)
 end
 
 return RevealFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX81"><Properties><string name="Name">SlotFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/SlotFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX82"><Properties><string name="Name">SlotFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/SlotFx
 -- Écran de tirage « machine à sous » (rareté / taille / mutation) avant la révélation d'un œuf : 3 colonnes qui défilent comme des rouleaux, ralentissent et
 -- s'arrêtent une à une (secousse et étincelles à chaque arrêt), bannière « SECRET ! » sur un tirage secret, phénix lumineux avec cercle runique dès le
 -- palier Légendaire. 100 % dessiné par le code ; le plan (positions, arrêts) vient de Reveal.slotPlan et le résultat affiché est TOUJOURS le tirage réel.
@@ -40701,7 +41216,7 @@ function SlotFx.play(parent, plan, cell, opts)
 end
 
 return SlotFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX82"><Properties><string name="Name">MiniMapUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/MiniMapUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX83"><Properties><string name="Name">MiniMapUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/MiniMapUi
 -- Mini-carte ronde dessinée par le code : un cadre, des pastilles réutilisées (au plus Config.MINIMAP.maxDots, jamais créées en cours de route), mise à jour
 -- Config.MINIMAP.hz fois par seconde. Points : toi (centre), ta base, les zones (grisées si verrouillées), les portails de voyage rapide, les gardiens proches.
 -- Bouton 🗺 pour l'afficher ou la masquer. Tout sous pcall.
@@ -40857,7 +41372,7 @@ function MiniMapUi.start(Config, MiniMap, player, gui, getState, UserInputServic
 end
 
 return MiniMapUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX83"><Properties><string name="Name">BattleUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX84"><Properties><string name="Name">BattleUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleUi
 -- Arène des pets (PvE) : écran d'équipe (3 pets de la collection, type affiché), choix de l'étage de la tour, écran de combat (barres de PV, icônes de type,
 -- flèche d'avantage, journal court, minuteur de tour), écran de résultat avec récompenses. 100 % code. Le client N'ENVOIE QU'UNE INTENTION par tour
 -- (« attack », « skill », « swapN ») : tout le résultat vient du serveur (événements rejoués ici). Aucune erreur ne sort d'ici.
@@ -41742,7 +42257,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 end
 
 return BattleUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX84"><Properties><string name="Name">BattleIntro</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleIntro   (lot 10, B.4)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX85"><Properties><string name="Name">BattleIntro</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleIntro   (lot 10, B.4)
 -- Intro de combat, 3 s au maximum, passable (tap après 1 s) : deux bandeaux glissent depuis les bords (joueur à gauche, adversaire à droite) avec portrait, nom, ligue,
 -- trophées, ratio « 124 V / 37 D (77 %) » et 3 vignettes de pets (type + compteur de rareté) ; « VS » qui frappe (échelle 2 -> 1, secousse 0,3 s, son « fanfare » à 0,5) ;
 -- flèche d'avantage de type ; décompte 3-2-1 si demandé. 100 % code. Le plan vient de ReplicatedStorage/IntroPlan (pur). Rien ne s'exécute à l'import, aucun require.
@@ -41967,7 +42482,7 @@ function BattleIntro.play(parent, plan, opts)
 end
 
 return BattleIntro
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX85"><Properties><string name="Name">BattleScene</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleScene   (refonte de la présentation du combat, vue face à face)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX86"><Properties><string name="Name">BattleScene</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleScene   (refonte de la présentation du combat, vue face à face)
 -- Construit l'écran de combat : une scène 3D dans un ViewportFrame (fond de ciel, sol de sable ou d'herbe, décor en arc, deux socles circulaires lumineux, une créature
 -- procédurale par camp, caméra fixe en léger angle), la carte de l'adversaire (haut à droite : nom, niveau, barre de PV verte, points d'état de l'équipe), la carte du
 -- joueur (bas à gauche : nom, niveau, PV chiffrés, points d'état, pastilles de charge), le bandeau de journal (bas) et les boutons d'action (bas à droite : Attaque,
@@ -42974,7 +43489,7 @@ function BattleScene.create(o)
 end
 
 return BattleScene
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX86"><Properties><string name="Name">HatchFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HatchFx   (lot 10, B.3)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX87"><Properties><string name="Name">HatchFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HatchFx   (lot 10, B.3)
 -- Exécute le plan d'éclosion calculé par ReplicatedStorage/HatchPlan (10 animations, une par rareté). 100 % dessiné par le code : Frames, TextLabels, UICorner,
 -- UIGradient, UIStroke, TweenService, plus un ColorCorrectionEffect temporaire (teinte / désaturation) et le champ de vision de la caméra (zoom). Aucun asset.
 -- Tout est sous pcall ; durée <= 8 s ; l'œuf, la caméra et l'interface sont TOUJOURS restitués (fin normale, passage par un tap, erreur, ou chien de garde à durée + 0,6 s).
@@ -43734,7 +44249,7 @@ function HatchFx.play(parent, plan, opts)
 end
 
 return HatchFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX87"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/TypeFx   (lot 10, B.6)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX88"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/TypeFx   (lot 10, B.6)
 -- Effets d'attaque par type (Feu, Eau, Plante, Glace, Foudre, Terre, Ciel, Ombre, Lumière) pour l'écran de combat : attaque de base (0,5 s) et spécial (1,2 s, cercle runique sous
 -- l'attaquant + secousse 0,4 s), plus le texte d'efficacité flottant. 100 % dessiné par le code (Frames, TextLabels, UICorner, UIGradient, UIStroke, TweenService), aucun asset.
 -- Les DONNÉES viennent de ReplicatedStorage/TypeFx (table DATA, exposée plus tard comme Config.TYPE_FX) et sont PASSÉES en paramètre : ce module n'a aucun require et
@@ -44134,7 +44649,7 @@ function TypeFx.floatText(parent, text, rgb, x, y)
 end
 
 return TypeFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX88"><Properties><string name="Name">BaseUpgradeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayer/StarterPlayerScripts/BaseUpgradeFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX89"><Properties><string name="Name">BaseUpgradeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayer/StarterPlayerScripts/BaseUpgradeFx
 -- Montée de niveau de la maison (REFONTE lot 5, D.4), côté client : échafaudage de bois (Parts temporaires locales), nuage de poussière + onde (VfxKit),
 -- l'ancienne maison s'enfonce, la nouvelle monte avec squash & stretch. Le calendrier vient du module pur Upgrade (4,5 s) ; la bannière, la fanfare et les
 -- confettis viennent de la notification serveur « levelup » (au début de la fête). Le serveur garde la nouvelle maison sous le sol puis la remet en place
@@ -44417,7 +44932,7 @@ function BaseUpgradeFx.start(env)
 end
 
 return BaseUpgradeFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX89"><Properties><string name="Name">HenUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HenUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX90"><Properties><string name="Name">HenUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HenUi
 -- REFONTE lot 6 : interface de l'énigme de la Mère Poule. Tout est local au joueur et sous pcall ; le serveur reste autoritaire (le client n'envoie que
 -- des intentions : « henGo », « henExplain », « henHint », « henReplay »).
 --  - bulle de dialogue en bas (texte écrit à Config.HEN.bubbleCps caractères/s, « Suivant », boutons selon le contexte, passable) ;
@@ -44879,7 +45394,407 @@ function HenUi.start(ctx)
 end
 
 return HenUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX90"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX91"><Properties><string name="Name">EvolveUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/EvolveUi   (écran « ✨ Évoluer » des pets)
+-- Construit l'écran d'évolution : bouton ✨ à droite, panneau avec la liste des pets de la base (prêt / doublons manquants / interdit / forme 2), détail du pet choisi
+-- (gains de revenu et de force, les 3 doublons que le SERVEUR sacrifiera), confirmation en DEUX appuis (« Évoluer » puis « Confirmer », la 2e étape expire en 4 s),
+-- retour visuel de 1 s au plus. TOUTE la logique (états, textes, disposition) vient du module pur EvolveLayout (testé) ; ici : uniquement des instances.
+-- Le client n'envoie que « evoPreview » (indice) et « evolve » ({ i, maxCost = prix vu }) : le serveur décide doublons, coût et interdits (Evolution.plan) et répond sur
+-- « Evo » ({ k = "preview", view } ou { k = "done" }). Config.EVOLUTION.enabled = false : l'écran affiche « bientôt », aucun bouton actif, AUCUN message envoyé.
+-- Aucune erreur ne sort d'ici (start retourne nil si la construction échoue). Pas de += ni de continue (lanceur lupa).
+local EvolveUi = {}
+
+local function rgb(t)
+	return Color3.fromRGB(t[1], t[2], t[3])
+end
+
+-- ctx = { Config, Evolution, Layout (EvolveLayout), player, gui, FONT, RAction, REvo, playSound, getState = fn() -> état du client, reduced }
+function EvolveUi.start(ctx)
+	if type(ctx) ~= "table" or type(ctx.Layout) ~= "table" or type(ctx.Evolution) ~= "table" or ctx.gui == nil or ctx.REvo == nil or ctx.RAction == nil then
+		return nil
+	end
+	local Config, E, EL, FONT = ctx.Config, ctx.Evolution, ctx.Layout, ctx.FONT or Enum.Font.GothamBold
+	local U = EL.UI
+	local S = { alive = true, flow = EL.newFlow(), sig = nil, rowBtns = {}, conns = {}, fxToken = 0, lastPhase = "idle" }
+
+	local function make(class, props, parent)
+		local o = Instance.new(class)
+		for k, v in pairs(props) do
+			o[k] = v
+		end
+		o.Parent = parent
+		return o
+	end
+	local function snd(key)
+		if type(ctx.playSound) == "function" then
+			pcall(ctx.playSound, key)
+		end
+	end
+	local function getState()
+		local ok, st = pcall(ctx.getState)
+		return ok and type(st) == "table" and st or nil
+	end
+	local function enabled()
+		return EL.enabled(Config)
+	end
+	local function conn(sig, fn)
+		S.conns[#S.conns + 1] = sig:Connect(fn)
+	end
+
+	local ok, err = pcall(function()
+		S.open = make("TextButton", { Name = "EvolveButton", AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0.3, -82), Size = UDim2.fromOffset(34, 34), Text = "✨", Font = FONT, TextSize = 18, BackgroundColor3 = rgb(U.btnOn), TextColor3 = rgb(U.darkText), AutoButtonColor = true }, ctx.gui)
+		make("UICorner", { CornerRadius = UDim.new(0, 10) }, S.open)
+		make("UIStroke", { Color = Color3.fromRGB(20, 80, 40), Thickness = 2 }, S.open)
+		S.dot = make("Frame", { Name = "ReadyDot", Size = UDim2.fromOffset(10, 10), Position = UDim2.new(1, -9, 0, -1), BackgroundColor3 = rgb(U.ok), BorderSizePixel = 0, Visible = false }, S.open) -- pastille « un pet est prêt »
+		make("UICorner", { CornerRadius = UDim.new(1, 0) }, S.dot)
+
+		S.root = make("Frame", { Name = "EvolvePanel", BackgroundColor3 = rgb(U.panel), Visible = false, ZIndex = 30, Active = true }, ctx.gui)
+		make("UICorner", { CornerRadius = UDim.new(0, 16) }, S.root)
+		make("UIStroke", { Color = rgb(U.panelStroke), Thickness = 3 }, S.root)
+		S.title = make("TextLabel", { Name = "Title", BackgroundTransparency = 1, Font = FONT, TextSize = 20, Text = "✨ Évolution", TextColor3 = rgb(U.text), TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 31 }, S.root)
+		S.sub = make("TextLabel", { Name = "Subtitle", BackgroundTransparency = 1, Font = FONT, TextSize = 13, Text = "", TextWrapped = true, TextColor3 = rgb(U.muted), TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 31 }, S.root)
+		S.close = make("TextButton", { Name = "Close", Font = FONT, TextSize = 18, Text = "✕", BackgroundColor3 = rgb(U.btnCancel), TextColor3 = rgb(U.cancelText), AutoButtonColor = true, ZIndex = 32 }, S.root)
+		make("UICorner", { CornerRadius = UDim.new(0, 10) }, S.close)
+		S.list = make("ScrollingFrame", { Name = "PetList", BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 6, CanvasSize = UDim2.fromOffset(0, 0), AutomaticCanvasSize = Enum.AutomaticSize.Y, ScrollingDirection = Enum.ScrollingDirection.Y, ZIndex = 31 }, S.root)
+		make("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }, S.list)
+		S.detail = make("Frame", { Name = "Detail", BackgroundTransparency = 1, ZIndex = 31 }, S.root)
+		S.detailText = make("TextLabel", { Name = "DetailText", BackgroundTransparency = 1, Font = FONT, TextSize = 13, Text = "", TextWrapped = true, TextColor3 = rgb(U.text), TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.fromScale(1, 1), ZIndex = 32 }, S.detail)
+		S.primary = make("TextButton", { Name = "Primary", Font = FONT, TextSize = 15, TextWrapped = true, Text = "", BackgroundColor3 = rgb(U.btnOff), TextColor3 = rgb(U.offText), AutoButtonColor = false, ZIndex = 32 }, S.root)
+		make("UICorner", { CornerRadius = UDim.new(0, 10) }, S.primary)
+		S.cancel = make("TextButton", { Name = "Cancel", Font = FONT, TextSize = 15, Text = "Annuler", BackgroundColor3 = rgb(U.btnCancel), TextColor3 = rgb(U.cancelText), AutoButtonColor = true, Visible = false, ZIndex = 32 }, S.root)
+		make("UICorner", { CornerRadius = UDim.new(0, 10) }, S.cancel)
+		-- retour visuel : halo + pet + « ★2 » (créé à la demande, détruit après 1 s)
+		S.fx = make("Frame", { Name = "EvolveFx", BackgroundTransparency = 1, Visible = false, ZIndex = 40, Size = UDim2.fromScale(1, 1) }, S.root)
+	end)
+	if not ok then
+		if S.root then
+			pcall(function()
+				S.root:Destroy()
+			end)
+		end
+		if S.open then
+			pcall(function()
+				S.open:Destroy()
+			end)
+		end
+		return nil, err
+	end
+
+	local function place(inst, r)
+		inst.Position = UDim2.fromOffset(r.x, r.y)
+		inst.Size = UDim2.fromOffset(r.w, r.h)
+	end
+	local function guiSize()
+		local okS, w, h = pcall(function()
+			local a = ctx.gui.AbsoluteSize
+			return a.X, a.Y
+		end)
+		if okS and type(w) == "number" and type(h) == "number" and w > 0 and h > 0 then
+			return w, h
+		end
+		return nil, nil
+	end
+	local function relayout()
+		local vw, vh = guiSize()
+		local R = EL.rects(vw, vh, nil)
+		S.rects = R
+		-- le panneau est positionné en absolu dans l'écran : les rectangles des enfants sont relatifs au panneau
+		local px, py = R.panel.x, R.panel.y
+		local function rel(r)
+			return { x = r.x - px, y = r.y - py, w = r.w, h = r.h }
+		end
+		place(S.root, R.panel)
+		place(S.title, rel(R.header))
+		place(S.sub, rel(R.subtitle))
+		place(S.close, rel(R.close))
+		place(S.list, rel(R.list))
+		place(S.detail, rel(R.detail))
+		place(S.primary, rel(R.primary))
+		place(S.cancel, rel(R.cancel))
+	end
+
+	local function rowText(r)
+		local form = r.form == 2 and " ★2" or ""
+		return r.emoji .. " " .. r.name .. form .. "\n" .. r.tierName .. " · " .. r.tag
+	end
+	local function rowColor(status)
+		if status == "ready" then
+			return U.ok
+		elseif status == "dupes" then
+			return U.warn
+		elseif status == "locked" then
+			return U.bad
+		end
+		return U.muted
+	end
+
+	local function rebuildRows(rows)
+		for _, b in ipairs(S.rowBtns) do
+			pcall(function()
+				b:Destroy()
+			end)
+		end
+		S.rowBtns = {}
+		for n, r in ipairs(rows) do
+			local selected = S.flow.i == r.i
+			local b = make("TextButton", { Name = "Row" .. r.i, LayoutOrder = n, Size = UDim2.new(1, -8, 0, EL.ROW_H), Font = FONT, TextSize = 14, TextWrapped = true, Text = rowText(r), TextColor3 = rgb(rowColor(r.status)), BackgroundColor3 = rgb(selected and U.rowSel or U.row), AutoButtonColor = true, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 32 }, S.list)
+			make("UICorner", { CornerRadius = UDim.new(0, 10) }, b)
+			make("UIPadding", { PaddingLeft = UDim.new(0, 10) }, b)
+			if selected then
+				make("UIStroke", { Color = rgb(U.panelStroke), Thickness = 2 }, b)
+			end
+			local idx = r.i
+			conn(b.Activated, function()
+				if not S.alive then
+					return
+				end
+				snd("click")
+				local _, act = EL.select(S.flow, idx, os.clock(), enabled())
+				if act and act.kind == "preview" then
+					pcall(function()
+						ctx.RAction:FireServer("evoPreview", act.i)
+					end)
+				end
+				S.refresh(true)
+			end)
+			S.rowBtns[#S.rowBtns + 1] = b
+		end
+	end
+
+	-- Mise à jour complète de l'écran d'après l'état du joueur et la machine d'états.
+	function S.refresh(forceRows)
+		if not S.alive then
+			return
+		end
+		pcall(function()
+			local st = getState()
+			local rows = st and EL.list(Config, E, st) or {}
+			local on = enabled()
+			S.dot.Visible = on and EL.countReady(rows) > 0
+			if not S.root.Visible then
+				return
+			end
+			local head = EL.header(Config, rows)
+			S.title.Text = head.title
+			S.sub.Text = head.subtitle .. (head.rule ~= "" and ("\nCoût : " .. head.rule .. ".") or "")
+			S.sub.TextColor3 = rgb(head.soon and U.soon or U.muted)
+			-- le pet choisi doit toujours exister et ne pas être en forme 2 : sinon retour au repos
+			if S.flow.i ~= nil then
+				local found = false
+				for _, r in ipairs(rows) do
+					if r.i == S.flow.i and (r.form ~= 2 or S.flow.phase == "done") then
+						found = true
+					end
+				end
+				if not found then
+					EL.reset(S.flow)
+				end
+			end
+			local parts = { on and "1" or "0", tostring(S.flow.i) }
+			for _, r in ipairs(rows) do
+				parts[#parts + 1] = r.i .. r.status .. r.form
+			end
+			local sig = table.concat(parts, ",")
+			if forceRows or sig ~= S.sig then
+				S.sig = sig
+				if head.soon then
+					rebuildRows({})
+				else
+					rebuildRows(rows)
+				end
+			end
+			local btn = EL.button(S.flow, on, E)
+			S.primary.Text = btn.text
+			S.primary.Active = btn.active
+			S.primary.AutoButtonColor = btn.active
+			local confirm = btn.kind == "confirm"
+			S.primary.BackgroundColor3 = rgb(btn.active and (confirm and U.btnConfirm or U.btnOn) or U.btnOff)
+			S.primary.TextColor3 = rgb(btn.active and U.darkText or U.offText)
+			S.cancel.Visible = btn.cancel
+			local d = st and EL.detail(Config, st, S.flow) or nil
+			if on and d then
+				local chips = {}
+				for _, c in ipairs(d.chips) do
+					chips[#chips + 1] = c.emoji .. " #" .. c.i
+				end
+				local sac = #chips > 0 and ("Sacrifiés : " .. table.concat(chips, "  ")) or ""
+				S.detailText.Text = d.emoji .. " " .. d.name .. " → forme 2\n" .. table.concat(d.lines, "\n") .. (sac ~= "" and ("\n" .. sac) or "")
+			elseif head.soon then
+				S.detailText.Text = "Revenu +" .. EL.pct(Config.EVOLUTION and Config.EVOLUTION.incomeMul) .. " %, force +" .. EL.pct(Config.EVOLUTION and Config.EVOLUTION.powerMul) .. " % : bientôt disponible.\nAucune forme payante : seulement des doublons et des pièces gagnées en jouant."
+			else
+				S.detailText.Text = "Touche un pet pour voir ce qu'il gagnerait."
+			end
+			if S.lastPhase ~= S.flow.phase then
+				if S.flow.phase == "refused" then
+					snd("refuse")
+				end
+				S.lastPhase = S.flow.phase
+			end
+		end)
+	end
+
+	-- Retour visuel (au plus EL.MAX_FX secondes) : halo qui s'éteint, pet qui rebondit, « ★2 » ; une seule animation à la fois, arrêtée à la destruction.
+	function S.playFx(msg)
+		S.fxToken = S.fxToken + 1
+		local token = S.fxToken
+		local def = type(msg) == "table" and Config.PETS and Config.PETS[msg.p] or nil
+		pcall(function()
+			for _, c in ipairs(S.fx:GetChildren()) do
+				c:Destroy()
+			end
+			local halo = make("Frame", { Name = "Halo", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(150, 150), BackgroundColor3 = Color3.fromRGB(255, 236, 140), BorderSizePixel = 0, ZIndex = 41 }, S.fx)
+			make("UICorner", { CornerRadius = UDim.new(1, 0) }, halo)
+			local pet = make("TextLabel", { Name = "Pet", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(120, 100), BackgroundTransparency = 1, Font = FONT, TextSize = 72, Text = def and tostring(def.emoji) or "✨", ZIndex = 42 }, S.fx)
+			local star = make("TextLabel", { Name = "Star", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0.5, 40), Size = UDim2.fromOffset(160, 36), BackgroundTransparency = 1, Font = FONT, TextSize = 28, Text = "★2", TextColor3 = Color3.fromRGB(255, 236, 140), TextStrokeTransparency = 0.3, ZIndex = 42 }, S.fx)
+			local sc = make("UIScale", { Scale = 1 }, pet)
+			S.fx.Visible = true
+			local dur = math.min(EL.MAX_FX, EL.fxSeconds(ctx.reduced == true))
+			task.spawn(function()
+				local t0 = os.clock()
+				while S.alive and S.fxToken == token do
+					local a = (os.clock() - t0) / dur
+					local f = EL.fx(a)
+					pcall(function()
+						sc.Scale = f.scale
+						halo.BackgroundTransparency = f.haloTransparency
+						star.TextTransparency = 1 - f.starAlpha
+					end)
+					if a >= 1 then
+						break
+					end
+					task.wait(0.03)
+				end
+				if S.fxToken == token then
+					pcall(function()
+						S.fx.Visible = false
+						for _, c in ipairs(S.fx:GetChildren()) do
+							c:Destroy()
+						end
+					end)
+				end
+			end)
+		end)
+	end
+
+	conn(S.open.Activated, function()
+		snd("click")
+		S.root.Visible = not S.root.Visible
+		if S.root.Visible then
+			pcall(relayout)
+			S.sig = nil
+			S.refresh(true)
+		else
+			EL.reset(S.flow)
+		end
+	end)
+	conn(S.close.Activated, function()
+		snd("click")
+		S.root.Visible = false
+		EL.reset(S.flow)
+	end)
+	conn(S.primary.Activated, function()
+		if not S.alive then
+			return
+		end
+		local _, act = EL.press(S.flow, os.clock(), enabled())
+		if act and act.kind == "evolve" then
+			snd("click")
+			pcall(function()
+				ctx.RAction:FireServer("evolve", { i = act.i, maxCost = act.maxCost })
+			end)
+		elseif S.flow.phase == "confirm" then
+			snd("click")
+		end
+		S.refresh(false)
+	end)
+	conn(S.cancel.Activated, function()
+		snd("click")
+		EL.cancel(S.flow)
+		S.refresh(false)
+	end)
+	conn(ctx.REvo.OnClientEvent, function(m)
+		if not S.alive or type(m) ~= "table" then
+			return
+		end
+		pcall(function()
+			if m.k == "preview" and type(m.view) == "table" then
+				EL.onPreview(S.flow, m.view, os.clock())
+			elseif m.k == "done" then
+				EL.onDone(S.flow, m, os.clock())
+				if S.flow.phase == "done" then
+					snd("levelup")
+					S.playFx(m)
+				end
+			end
+			S.refresh(false)
+		end)
+	end)
+	pcall(function()
+		conn(ctx.gui:GetPropertyChangedSignal("AbsoluteSize"), function()
+			if S.alive then
+				pcall(relayout)
+			end
+		end)
+	end)
+	pcall(relayout)
+
+	-- Horloge de l'écran : expiration de la 2e étape, délai de l'envoi, fin du retour visuel, aperçu différé ; ne fait rien tant que l'écran est fermé.
+	task.spawn(function()
+		local n = 0
+		while S.alive do
+			task.wait(0.25)
+			n = n + 1
+			pcall(function()
+				if not S.root.Visible then
+					if n % 8 == 0 then -- écran fermé : seule la pastille « un pet est prêt » est remise à jour (toutes les 2 s)
+						S.refresh(false)
+					end
+					return
+				end
+				local now = os.clock()
+				local _, act = EL.tick(S.flow, now)
+				local due = EL.due(S.flow, now)
+				local a = act or due
+				if a and a.kind == "preview" and enabled() then
+					pcall(function()
+						ctx.RAction:FireServer("evoPreview", a.i)
+					end)
+				end
+				S.refresh(false)
+			end)
+		end
+	end)
+
+	local self = { gui = S.root, button = S.open }
+	function self.state()
+		return S.flow.phase
+	end
+	function self.onState()
+		S.refresh(false)
+	end
+	function self.destroy()
+		if not S.alive then
+			return
+		end
+		S.alive = false
+		for _, c in ipairs(S.conns) do
+			pcall(function()
+				c:Disconnect()
+			end)
+		end
+		S.conns = {}
+		pcall(function()
+			S.root:Destroy()
+		end)
+		pcall(function()
+			S.open:Destroy()
+		end)
+	end
+	S.refresh(false)
+	return self
+end
+
+return EvolveUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX92"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
 -- Icônes de richesse dessinées par le code (Frames, UICorner, UIStroke, UIGradient) : 1 pièce, petite pile, grosse pile, coffre.
 -- Aucune image ni identifiant. Retourne le conteneur ; aucune erreur ne sort d'ici (pcall) : nil si la construction échoue.
 local CoinIcon = {}

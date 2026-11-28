@@ -41,6 +41,15 @@ Citation : « Plus les pets sont rares, plus ils rapportent de pièces, plus ils
 - `Showcase.lua` : `originOk`, `featured`, `validOrigin`, `DEFAULTS.origins` ; `tryClaim` exige `player.og` admis (`notEarned` sinon, avant tout appel DataStore). Main : condition d'éclosion `enabled and originOk(sl.og) and featured(...)`, crochet de test `lot7Hooks.showcase`.
 - **Tests** : `tests/showcase_origin.luau` (44 assertions, aussi `python3 roblox/tests/run_showcase_origin.py`) : pur (payé / inconnu / invalide jamais gagnant, 0 appel DataStore, pas de rattrapage), textes de chaque octroi, bout en bout (pièces -> `c`, reçu Robux -> aucune origine, sac et coffre -> aucune origine, éclosions espionnées vitrine forcée : 0 réclamation pour les œufs payés, 2 pour `g` / `c`, rien vitrine désactivée ; mutation vérifiée : sans `originOk` 5 échecs). `showcase.luau` : `enabled == false`, joueurs de test avec `og = "g"`.
 - **Écarts** : un œuf gagné qui passe par le sac d'œufs ou le coffre perd son éligibilité (le sac ne stocke que des raretés : choix prudent) ; le palier gratuit du passe de combat est aussi exclu. À confirmer : œufs en pièces admis (`origins.c`).
+## Interface « ✨ Évoluer » (désactivée) — idée 2, suite (2026-11-28)
+
+Écrite sur la tête aae04dc. **Rien n'a été vu dans Studio** : la mise en page et le retour visuel sont remplacés par des propriétés mesurables testées (lupa + runtime factice). `Config.EVOLUTION.enabled` RESTE `false`.
+
+- **`EvolveLayout.lua`** (Shared, pur, `Evolution` injecté) : liste des pets (prêt / doublons manquants / interdit / forme 2, tri), estimation du client = même règle que `Evolution.plan` (400 états aléatoires comparés au serveur, 0 écart), gains (revenu +15 %, force +10 %, lus dans `Config.EVOLUTION`), pastilles des doublons du serveur et vérification de sélection, machine d'états (aperçu -> prêt -> « Confirmer » en 2 appuis, expiration 4 s, envoi sans réponse 6 s, débit 0,35 s), textes des 13 codes de refus, retour visuel <= 1,2 s (échelle, halo, étoile mesurés), disposition (17 appareils x zone sûre : cibles >= 44 px, aucune superposition), couples de couleurs >= 4,5:1.
+- **`EvolveUi.lua`** (client) : bouton ✨ (sous ⚔️), panneau, liste défilante, détail, « Annuler », retour visuel, pastille « un pet est prêt ». N'envoie que `evoPreview` (indice) et `evolve` (`{ i, maxCost = prix vu }`) ; **désactivé : « Bientôt disponible », bouton grisé, aucun message envoyé**.
+- **Aucun changement de logique serveur** (test statique : `Main.server.lua` garde exactement `actions.evoPreview` et `actions.evolve`). Client : une seule ligne d'enregistrement. `build_place.py` : `EvolveLayout`, `EvolveUi`.
+- **Écart** : les 3 doublons sont choisis par le serveur (`Evolution.pickSacrifices`) ; l'écran les affiche et les vérifie, le joueur ne peut pas les changer sans nouveau protocole (non demandé).
+- Tests : `tests/evolveui.luau` + `run_evolveui.py`, branchés dans `run.luau`.
 
 ## IDÉE 2 (lot 17) : évolution des pets en forme 2 — DÉSACTIVÉE, profil v14 (2026-11-28)
 

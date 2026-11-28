@@ -3089,6 +3089,12 @@ pcall(function()
 	})
 end)
 
+-- Lot 17 (idée 2) : écran « ✨ Évoluer » (désactivé tant que Config.EVOLUTION.enabled = false : affiche « bientôt », aucun envoi). Logique pure : Shared/EvolveLayout.
+pcall(function()
+	local Shared = ReplicatedStorage:WaitForChild("Shared")
+	require(script.Parent:WaitForChild("EvolveUi")).start({ Config = Config, Evolution = require(Shared:WaitForChild("Evolution")), Layout = require(Shared:WaitForChild("EvolveLayout")), player = player, gui = gui, FONT = FONT, RAction = RAction, REvo = L15.REvo, playSound = playSound, getState = function() return state end, reduced = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled })
+end)
+
 -- LOT 13 : invite « Défier » (touche G) au-dessus des autres joueurs, créée LOCALEMENT (visible de ce client seul) ; elle n'envoie qu'un userId : le serveur
 -- revalide distance, états, cooldown et réglage. Touche distincte de E : ne masque jamais les invites des œufs et des nids.
 pcall(function()

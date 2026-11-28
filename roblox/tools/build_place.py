@@ -36,6 +36,7 @@ SHARED = [("Config", "Config.lua"), ("Easing", "Easing.lua"), ("Cinema", "Cinema
           ("UiStyle", "UiStyle.lua"),  # graphismes 6 : style d'interface commun (pur)
           ("Music", "Music.lua"),  # graphismes 9 : musique par zone (pur)
           ("EggAura", "EggAura.lua"),  # lot graphismes 4 : halos d'œufs et bulles de protection (pur)
+          ("EvolveLayout", "EvolveLayout.lua"),  # lot 17 (idée 2) : interface Évoluer, logique pure
           ("Evolution", "Evolution.lua")]  # lot 17 (idée 2) : évolution des pets (règles pures)  # lot 17 (idée 3) : vitrine du pet du jour (règles pures, DataStore injecté)  # lot 17 : onboarding des 5 premières minutes (règles pures)  # lot graphismes : lumière unifiée, styles d'arbres, sol, LOD (planificateur pur)  # lot 13 : duel local, ligues, remise de saison ; lot 14 : classé en direct (règles pures)
 
 def shared():
@@ -87,6 +88,7 @@ game_tree = [
             item("ModuleScript", "TypeFx", read("StarterPlayerScripts/TypeFx.lua")),
             item("ModuleScript", "BaseUpgradeFx", read("StarterPlayerScripts/BaseUpgradeFx.lua")),
             item("ModuleScript", "HenUi", read("StarterPlayerScripts/HenUi.lua")),
+            item("ModuleScript", "EvolveUi", read("StarterPlayerScripts/EvolveUi.lua")),  # lot 17 (idée 2) : écran Évoluer
             item("ModuleScript", "CoinIcon", read("StarterPlayerScripts/CoinIcon.lua"))])]),
 ]
 
