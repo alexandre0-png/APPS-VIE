@@ -65,7 +65,7 @@ return function(env)
 	local s = hooks.session(T.p1)
 	local d = s and s.data
 	check("Migration v11 -> v12 : pièces, série, éclosions, pets et œufs conservés ; champs du lot 15 assainis (npc neuf, grâce bornée, semaine bornée, plumes bornées, sac filtré)" .. errs(),
-		d ~= nil and d.ver == 13 and d.coins >= 7777 and d.streak == 12 and d.hatched == 40 and d.slots[1].k == "p" and d.slots[3].k == "e" and d.plumes == 7
+		d ~= nil and d.ver == 14 and d.coins >= 7777 and d.streak == 12 and d.hatched == 40 and d.slots[1].k == "p" and d.slots[3].k == "e" and d.plumes == 7
 		and type(d.npc) == "table" and d.npc.off == false and d.npc.trades == 0 and d.grace.used <= 1 and d.grace.weeks == 0 and d.grace.week == 0
 		and type(d.weekly.prog) == "table" and d.weekly.prog[1] <= cfg.QUESTS.weekly.themes[1].goal and d.event.p <= cfg.PLUMES.balanceCap and d.event.k == ""
 		and #d.eggBag == 2 and d.eggBag[1] == 3 and d.eggBag[2] == 4 and d.xp2Until == 0 and d.seasonXp == 0 and type(d.season) == "table" and #RT.errors == 0)
@@ -74,7 +74,7 @@ return function(env)
 	RT.removePlayer(T.p1)
 	RT.step(3)
 	local r1 = ds.data.P_9951 and ds.data.P_9951.v
-	check("Sauvegarde : le profil porte la version courante (13 au lot 16) et les champs npc, grace, weekly, event, eggBag", r1 ~= nil and r1.ver == 13 and type(r1.npc) == "table" and type(r1.grace) == "table" and type(r1.weekly) == "table" and type(r1.event) == "table" and type(r1.eggBag) == "table")
+	check("Sauvegarde : le profil porte la version courante (13 au lot 16) et les champs npc, grace, weekly, event, eggBag", r1 ~= nil and r1.ver == 14 and type(r1.npc) == "table" and type(r1.grace) == "table" and type(r1.weekly) == "table" and type(r1.event) == "table" and type(r1.eggBag) == "table")
 	-- double migration : relire le profil v12 ne change rien aux champs du lot 15
 	local copyNpc = { trades = r1.npc.trades, nextAt = r1.npc.nextAt, off = r1.npc.off, day = r1.npc.day }
 	T.p1 = RT.addPlayer("L15A", 9951, { from = "hub", partyId = "L15A", size = 2, late = false })
@@ -82,14 +82,14 @@ return function(env)
 	s = hooks.session(T.p1)
 	d = s and s.data
 	check("Relecture d'un profil v12 (double migration) : champs du lot 15 inchangés, sac identique, aucune erreur" .. errs(),
-		d ~= nil and d.ver == 13 and d.npc.trades == copyNpc.trades and d.npc.nextAt == copyNpc.nextAt and d.npc.off == copyNpc.off and #d.eggBag == 2 and d.eggBag[2] == 4 and d.streak == 12 and #RT.errors == 0)
+		d ~= nil and d.ver == 14 and d.npc.trades == copyNpc.trades and d.npc.nextAt == copyNpc.nextAt and d.npc.off == copyNpc.off and #d.eggBag == 2 and d.eggBag[2] == 4 and d.streak == 12 and #RT.errors == 0)
 	-- profil plus récent (v14 depuis le lot 16) : lecture seule, rien n'est écrit
-	ds.data.P_9952 = { v = { ver = 14, coins = 42, npc = { off = true } }, t = 1700000000 + RT.now - 5000 }
+	ds.data.P_9952 = { v = { ver = 15, coins = 42, npc = { off = true } }, t = 1700000000 + RT.now - 5000 }
 	T.p2 = RT.addPlayer("L15B", 9952, { from = "hub", partyId = "L15A", size = 2, late = false })
 	RT.step(3)
 	RT.removePlayer(T.p2)
 	RT.step(3)
-	check("Profil d'une version plus récente (v14) : jamais écrasé (garde « version plus récente »)", ds.data.P_9952.v.ver == 14 and ds.data.P_9952.v.coins == 42)
+	check("Profil d'une version plus récente (v15 depuis l'idée 2) : jamais écrasé (garde « version plus récente »)", ds.data.P_9952.v.ver == 15 and ds.data.P_9952.v.coins == 42)
 
 	---------------------------------------------------------------- 2. Série de 7 jours (vrai serveur) : réclamation, refus du doublon, grâce, sauvetage, sac
 	d.daily, d.streak = utc() - 1, 3

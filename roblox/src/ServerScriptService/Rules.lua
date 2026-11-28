@@ -157,7 +157,7 @@ function Rules.new(Config)
 		for i = 1, capacity do
 			local sl = slots[i]
 			if sl and sl.k == "p" then
-				total += Config.petIncome(sl.p, sl.s, sl.m)
+				total += Config.petIncome(sl.p, sl.s, sl.m, sl.f) -- idée 2 : forme 2 (sl.f = 2) x Config.EVOLUTION.incomeMul
 			end
 		end
 		return total * mult

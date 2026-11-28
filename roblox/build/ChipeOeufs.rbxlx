@@ -2,7 +2,7 @@
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
 <Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool><int name="StreamingMinRadius">128</int><int name="StreamingTargetRadius">480</int></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX53"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX52"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="ReplicatedStorage" referent="RBX54"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX53"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -234,6 +234,17 @@ Config.MUTS = {
 	{ name = "Céleste", mult = 20, weight = 0.1, color = Color3.fromRGB(255, 243, 176), aura = true }, -- lot 9 (A.6)
 }
 
+-- IDÉE 2 : évolution des pets en « forme 2 » (règles pures : Shared/Evolution, tests/evolution.luau). Aucune forme payante : coût = `sacrifices` doublons
+-- de la même rareté + `costSeconds` du revenu actuel du joueur (pièces). Forme 2 : revenu x incomeMul (Config.petIncome, 4e argument), pv et attaque
+-- x powerMul en combat (Battle.unit, échelle ; la forme 2 d'une rareté reste sous la forme 1 de la suivante, testé sur les 10 raretés), silhouette
+-- x visualScale + halo (Builder.pet). Interdits : Géant / Colossal (tailles 4, 5), Arc-en-ciel et au-delà (mutations 4 à 6 : Arc-en-ciel, Alien, Céleste).
+-- enabled = false : activer après le test dans Studio (README de idee-evolution) ; même désactivée, un pet déjà en forme 2 garde ses bonus.
+Config.EVOLUTION = {
+	enabled = false, sacrifices = 3, costSeconds = 300, incomeMul = 1.15, powerMul = 1.10, visualScale = 1.15, maxForm = 2,
+	blockedSizes = { [4] = true, [5] = true }, blockedMuts = { [4] = true, [5] = true, [6] = true },
+	haloColor = Color3.fromRGB(255, 236, 140), haloTransparency = 0.45, haloSpin = 1.2,
+}
+
 -- Rivaux PNJ : poids de tirage des œufs (par rareté), vitesses des gardiens en studs/s
 -- (le joueur démarre à 16 : il doit s'entraîner sur le tapis pour battre Mara puis Zed)
 Config.RIVALS = {
@@ -368,8 +379,8 @@ function Config.fmtTime(s)
 	return string.format("%dm%02d", s // 60, s % 60)
 end
 
-function Config.petIncome(p, s, m)
-	return Config.PETS[p].inc * Config.SIZES[s].mult * Config.MUTS[m].mult
+function Config.petIncome(p, s, m, f)
+	return Config.PETS[p].inc * Config.SIZES[s].mult * Config.MUTS[m].mult * ((f == 2 and Config.EVOLUTION) and Config.EVOLUTION.incomeMul or 1) -- idée 2 : forme 2 (f = 2) x incomeMul
 end
 
 -- Revente d'un œuf (jamais rentable : on récupère 25 % du prix, achat puis revente = perte de 75 %).
@@ -388,13 +399,14 @@ function Config.eggSellValue(tier)
 end
 
 -- Doublons à revendre : pour chaque espèce, on garde le pet le plus rentable (revenu, puis indice le plus bas) et on revend les autres.
+-- Idée 2 : un pet en forme 2 (f = 2) compte avec son revenu de forme 2 et n'est JAMAIS revendu par lot (il a coûté 3 doublons).
 -- slots[i] = { k = "p", p, s, m } | { k = "e" } | false ; retourne (liste triée d'indices, valeur totale).
 function Config.dupesToSell(slots, cap)
 	local best = {} -- espèce -> { i, income }
 	for i = 1, cap do
 		local sl = slots[i]
 		if sl and sl.k == "p" then
-			local inc = Config.petIncome(sl.p, sl.s, sl.m)
+			local inc = Config.petIncome(sl.p, sl.s, sl.m, sl.f)
 			local b = best[sl.p]
 			if not b or inc > b.income then
 				best[sl.p] = { i = i, income = inc }
@@ -404,7 +416,7 @@ function Config.dupesToSell(slots, cap)
 	local out, total = {}, 0
 	for i = 1, cap do
 		local sl = slots[i]
-		if sl and sl.k == "p" and best[sl.p].i ~= i then
+		if sl and sl.k == "p" and best[sl.p].i ~= i and sl.f ~= 2 then
 			out[#out + 1] = i
 			total = total + Config.sellValue(sl.p, sl.s, sl.m)
 		end
@@ -18839,8 +18851,368 @@ function Showcase.new(Config)
 end
 
 return Showcase
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX52"><Properties><string name="Name">Evolution</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Evolution
+-- IDÉE 2 (coffre IDEES_CHIPE_OEUFS) : évolution d'un pet en « forme 2 ». Logique PURE : aucune API Roblox, aucun yield, aucune erreur levée sur une
+-- entrée invalide (valeurs de retour). Testé par tests/evolution.luau (Lune ou lupa). Le serveur (Main) n'appelle que plan / stage / stillValid / apply.
+--
+-- Règles (Config.EVOLUTION, valeurs uniques) :
+--   * coût : `sacrifices` (3) DOUBLONS de la même rareté que le pet visé + `costSeconds` (300 s = 5 min) du revenu ACTUEL du joueur, en pièces.
+--     Aucune forme payante : rien ici ne lit un produit, un pass ou des Robux ; le coût en pièces est calculé par le serveur (le client n'envoie que
+--     l'emplacement et le prix maximal qu'il accepte, `maxCost`, pour ne jamais payer plus que ce qu'il a vu) ;
+--   * doublon : pet dont l'espèce garde au moins UN exemplaire dans la base après l'évolution (le pet visé compte). On ne sacrifie jamais le dernier
+--     exemplaire d'une espèce. Choix AUTOMATIQUE par le serveur : les doublons qui rapportent le moins d'abord (puis l'indice le plus bas) ;
+--   * forme 2 : même espèce (sl.p inchangé), `sl.f = 2`, revenu x incomeMul (1,15), pv et attaque x powerMul (1,10) en combat (Battle.unit, échelle),
+--     silhouette x visualScale et halo (Builder) ;
+--   * interdits : pet visé ou sacrifié qui suit le joueur (equip), qui est dans l'équipe de combat (battle.team) ou dont la copie (p, s, m) est dans la
+--     défense PvP enregistrée ; taille Géant / Colossal ; mutation Arc-en-ciel et au-delà (Alien, Céleste) ; pet déjà en forme 2 ; combat en cours ;
+--   * force : la forme 2 d'une rareté r reste STRICTEMENT sous la forme 1 de la rareté r + 1 (mêmes taille, mutation, niveau) : vérifié par les tests
+--     sur les 10 raretés (Battle.STATS) et sur chaque espèce du bestiaire ;
+--   * profil : `evo = { ["indice d'espèce"] = nombre d'évolutions }` (compteur par espèce), assaini, jamais remis à zéro (migration v13 -> v14 idempotente).
+-- Atomicité (même schéma que le calendrier et les cartes : sauvegarde PUIS octroi) : `stage` construit une COPIE du profil après l'évolution, le
+-- serveur la sauvegarde ; seulement si la sauvegarde réussit, `stillValid` puis `apply` modifient le profil vivant. Échec = profil vivant intact.
+local Evolution = {}
+
+Evolution.FORM2 = 2
+
+local function num(v, default)
+	if type(v) ~= "number" or v ~= v or v == math.huge or v == -math.huge then
+		return default
+	end
+	return v
+end
+
+local function isInt(v)
+	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge and v % 1 == 0
+end
+
+local function cfgOf(Config)
+	return type(Config) == "table" and type(Config.EVOLUTION) == "table" and Config.EVOLUTION or nil
+end
+
+-- Forme d'un emplacement : 2 si `f == 2`, sinon 1 (pets plus anciens, œufs, vides).
+function Evolution.form(sl)
+	if type(sl) == "table" and sl.k == "p" and sl.f == Evolution.FORM2 then
+		return 2
+	end
+	return 1
+end
+
+-- Assainit le champ facultatif `f` d'un pet (merge) : 2 ou absent. Idempotent.
+function Evolution.sanitizeForm(sl)
+	if type(sl) == "table" then
+		if sl.k == "p" and sl.f == Evolution.FORM2 then
+			sl.f = Evolution.FORM2
+		else
+			sl.f = nil
+		end
+	end
+	return sl
+end
+
+-- Multiplicateur de revenu d'une forme (Config.petIncome) : 1 ou cfg.incomeMul.
+function Evolution.incomeMulOf(Config, f)
+	local cfg = cfgOf(Config)
+	if f == Evolution.FORM2 and cfg then
+		return num(cfg.incomeMul, 1)
+	end
+	return 1
+end
+
+-- Échelle de combat d'un pet (3e argument de Battle.unit) : nil pour la forme 1 (aucun changement), cfg.powerMul pour la forme 2.
+function Evolution.powerScale(Config, sl)
+	local cfg = cfgOf(Config)
+	if cfg and Evolution.form(sl) == 2 then
+		return num(cfg.powerMul, 1)
+	end
+	return nil
+end
+
+-- Échelle visuelle (Builder) : 1 ou cfg.visualScale.
+function Evolution.visualScale(Config, f)
+	local cfg = cfgOf(Config)
+	if cfg and f == Evolution.FORM2 then
+		return num(cfg.visualScale, 1)
+	end
+	return 1
+end
+
+-- Compteur d'évolutions par espèce : clés = tostring(indice d'espèce existante), valeurs entières 1..1e6. Absent ou corrompu = {}.
+-- Idempotent : relire un compteur déjà assaini le rend identique.
+function Evolution.sanitizeCounts(Config, v)
+	local out = {}
+	if type(v) ~= "table" or type(Config) ~= "table" or type(Config.PETS) ~= "table" then
+		return out
+	end
+	for k, n in pairs(v) do
+		local idx = tonumber(k)
+		if idx and isInt(idx) and Config.PETS[idx] ~= nil and type(n) == "number" and n == n and n >= 1 then
+			out[tostring(idx)] = math.min(1e6, math.floor(n))
+		end
+	end
+	return out
+end
+
+-- Migration v13 -> v14 : pose `evo = {}` si absent ou d'un autre type ; un compteur existant n'est JAMAIS remis à zéro (assaini ensuite par merge).
+function Evolution.migrate(saved)
+	if type(saved) == "table" and type(saved.evo) ~= "table" then
+		saved.evo = {}
+	end
+	return saved
+end
+
+local function blocked(cfg, sl)
+	return (cfg.blockedSizes and cfg.blockedSizes[sl.s]) or (cfg.blockedMuts and cfg.blockedMuts[sl.m])
+end
+
+local function inList(list, v)
+	if type(list) == "table" then
+		for _, x in ipairs(list) do
+			if x == v then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+-- Raison pour laquelle l'emplacement `i` est protégé (suiveur, équipe, défense PvP), ou nil.
+function Evolution.protected(d, i)
+	if type(d) ~= "table" or type(d.slots) ~= "table" then
+		return "slot"
+	end
+	if inList(d.equip, i) then
+		return "follower"
+	end
+	local b = type(d.battle) == "table" and d.battle or {}
+	if inList(b.team, i) then
+		return "team"
+	end
+	local sl = d.slots[i]
+	local pv = type(b.pvp) == "table" and b.pvp or {}
+	if type(sl) == "table" and type(pv.defense) == "table" then
+		for _, e in ipairs(pv.defense) do
+			if type(e) == "table" and e.p == sl.p and e.s == sl.s and e.m == sl.m and e.f ~= Evolution.FORM2 then
+				return "defense"
+			end
+		end
+	end
+	return nil
+end
+
+-- Le pet de l'emplacement `i` peut-il être visé ? Retourne (true) ou (false, code). Ne regarde ni le coût ni les doublons.
+function Evolution.targetCheck(Config, d, i, capacity)
+	local cfg = cfgOf(Config)
+	if not cfg or cfg.enabled ~= true then
+		return false, "disabled"
+	end
+	if type(d) ~= "table" or type(d.slots) ~= "table" or not isInt(i) or i < 1 or i > (capacity or 0) then
+		return false, "slot"
+	end
+	local sl = d.slots[i]
+	if type(sl) ~= "table" or sl.k ~= "p" or type(Config.PETS) ~= "table" or Config.PETS[sl.p] == nil then
+		return false, "slot"
+	end
+	if Evolution.form(sl) >= (cfg.maxForm or 2) then
+		return false, "already"
+	end
+	if blocked(cfg, sl) then
+		return false, "special"
+	end
+	local why = Evolution.protected(d, i)
+	if why then
+		return false, why
+	end
+	return true
+end
+
+-- Doublons sacrifiables pour le pet visé `i` : `cfg.sacrifices` emplacements, ou (nil, nombre trouvé). Ordre : revenu croissant, puis indice.
+function Evolution.pickSacrifices(Config, d, i, capacity)
+	local cfg = cfgOf(Config)
+	local target = d.slots[i]
+	local tier = Config.PETS[target.p].tier
+	local counts = {}
+	for j = 1, capacity do
+		local sl = d.slots[j]
+		if type(sl) == "table" and sl.k == "p" and Config.PETS[sl.p] then
+			counts[sl.p] = (counts[sl.p] or 0) + 1
+		end
+	end
+	local cands = {}
+	for j = 1, capacity do
+		local sl = d.slots[j]
+		if
+			j ~= i
+			and type(sl) == "table"
+			and sl.k == "p"
+			and Config.PETS[sl.p]
+			and Config.PETS[sl.p].tier == tier
+			and Evolution.form(sl) == 1
+			and not blocked(cfg, sl)
+			and Evolution.protected(d, j) == nil
+		then
+			cands[#cands + 1] = { j = j, p = sl.p, inc = Config.petIncome(sl.p, sl.s, sl.m) }
+		end
+	end
+	table.sort(cands, function(a, b)
+		if a.inc ~= b.inc then
+			return a.inc < b.inc
+		end
+		return a.j < b.j
+	end)
+	local need = cfg.sacrifices or 3
+	local out = {}
+	for _, c in ipairs(cands) do
+		if #out < need and counts[c.p] > 1 then -- jamais le dernier exemplaire d'une espèce (le pet visé compte comme exemplaire restant)
+			out[#out + 1] = c.j
+			counts[c.p] = counts[c.p] - 1
+		end
+	end
+	if #out < need then
+		return nil, #out
+	end
+	table.sort(out)
+	return out
+end
+
+-- Coût en pièces : cfg.costSeconds x revenu actuel par seconde (arrondi au supérieur, >= 0).
+function Evolution.cost(Config, incomePerSec)
+	local cfg = cfgOf(Config)
+	local inc = math.max(0, num(incomePerSec, 0))
+	return math.max(0, math.ceil((cfg and cfg.costSeconds or 300) * inc - 1e-9))
+end
+
+-- Plan d'évolution complet. ctx (calculé par le SERVEUR) = { capacity, income, coins?, busy?, maxCost? }.
+-- Retourne (plan) ou (nil, code, détail). plan = { i, p, tier, sac = { j, ... }, pets = { [j] = table du pet }, target = table du pet, cost }.
+-- `pets` et `target` gardent les RÉFÉRENCES des tables du profil : stillValid vérifie que ce sont toujours les mêmes pets.
+function Evolution.plan(Config, d, i, ctx)
+	ctx = type(ctx) == "table" and ctx or {}
+	if ctx.busy then
+		return nil, "busy"
+	end
+	local capacity = isInt(ctx.capacity) and ctx.capacity or 0
+	local ok, code = Evolution.targetCheck(Config, d, i, capacity)
+	if not ok then
+		return nil, code
+	end
+	local sac, found = Evolution.pickSacrifices(Config, d, i, capacity)
+	if not sac then
+		return nil, "dupes", found
+	end
+	local cost = Evolution.cost(Config, ctx.income)
+	if ctx.maxCost ~= nil and (type(ctx.maxCost) ~= "number" or ctx.maxCost ~= ctx.maxCost or cost > ctx.maxCost) then
+		return nil, "price", cost
+	end
+	if num(d.coins, 0) < cost then
+		return nil, "coins", cost
+	end
+	local target = d.slots[i]
+	local pets = {}
+	for _, j in ipairs(sac) do
+		pets[j] = d.slots[j]
+	end
+	return { i = i, p = target.p, tier = Config.PETS[target.p].tier, sac = sac, pets = pets, target = target, cost = cost }
+end
+
+-- Aperçu pour le client : { ok, code, sac, cost, need, found } (aucune référence de table du profil).
+function Evolution.view(Config, d, i, ctx)
+	local plan, code, extra = Evolution.plan(Config, d, i, ctx)
+	local cfg = cfgOf(Config)
+	if plan then
+		return { ok = true, i = i, sac = plan.sac, cost = plan.cost, need = cfg.sacrifices }
+	end
+	return { ok = false, i = i, code = code, cost = (code == "coins" or code == "price") and extra or nil, found = code == "dupes" and extra or nil, need = cfg and cfg.sacrifices or nil }
+end
+
+local function bump(evo, p)
+	local k = tostring(p)
+	evo[k] = math.min(1e6, (evo[k] or 0) + 1)
+end
+
+-- Copie du profil APRÈS l'évolution, à sauvegarder (le profil vivant n'est pas touché) : copie superficielle, avec de nouvelles tables pour
+-- slots, evo et le pet visé ; les autres champs sont partagés (lecture seule pendant la sauvegarde).
+function Evolution.stage(d, plan)
+	local post = table.clone(d)
+	local slots = table.clone(d.slots)
+	local pet = table.clone(plan.target)
+	pet.f = Evolution.FORM2
+	slots[plan.i] = pet
+	for _, j in ipairs(plan.sac) do
+		slots[j] = false
+	end
+	local evo = table.clone(type(d.evo) == "table" and d.evo or {})
+	bump(evo, plan.p)
+	post.slots, post.evo = slots, evo
+	post.coins = num(d.coins, 0) - plan.cost
+	return post
+end
+
+-- Le plan s'applique-t-il encore au profil vivant (mêmes tables de pets aux mêmes emplacements, forme 1, pièces suffisantes) ?
+function Evolution.stillValid(d, plan)
+	if type(d) ~= "table" or type(d.slots) ~= "table" or type(plan) ~= "table" then
+		return false
+	end
+	if d.slots[plan.i] ~= plan.target or Evolution.form(plan.target) ~= 1 then
+		return false
+	end
+	for _, j in ipairs(plan.sac) do
+		if d.slots[j] ~= plan.pets[j] then
+			return false
+		end
+	end
+	return num(d.coins, 0) >= plan.cost
+end
+
+-- Applique le plan au profil vivant (après une sauvegarde réussie de `stage`) : pièces débitées (delta : le revenu gagné pendant la sauvegarde reste),
+-- doublons retirés, forme 2, compteur de l'espèce +1. Retourne true, ou false sans rien toucher si le plan ne s'applique plus.
+function Evolution.apply(d, plan)
+	if not Evolution.stillValid(d, plan) then
+		return false
+	end
+	d.coins = num(d.coins, 0) - plan.cost
+	for _, j in ipairs(plan.sac) do
+		d.slots[j] = false
+	end
+	plan.target.f = Evolution.FORM2
+	if type(d.evo) ~= "table" then
+		d.evo = {}
+	end
+	bump(d.evo, plan.p)
+	return true
+end
+
+-- Retire les indices sacrifiés d'une liste d'emplacements (equip) : sécurité, ils ne peuvent pas y être (protégés).
+function Evolution.dropIndices(list, sac)
+	if type(list) ~= "table" then
+		return list
+	end
+	for n = #list, 1, -1 do
+		if inList(sac, list[n]) then
+			table.remove(list, n)
+		end
+	end
+	return list
+end
+
+-- Messages des refus (client) : codes de plan / targetCheck.
+Evolution.REFUSE = {
+	disabled = "L'évolution n'est pas encore disponible.",
+	slot = "Choisis un pet de ta base.",
+	already = "Ce pet est déjà en forme 2.",
+	special = "Les pets Géants, Colossaux, Arc-en-ciel, Alien et Célestes n'évoluent pas.",
+	follower = "Ce pet te suit : retire-le de tes suiveurs avant de le faire évoluer.",
+	team = "Ce pet est dans ton équipe de combat : retire-le de l'équipe avant de le faire évoluer.",
+	defense = "Ce pet est dans ta défense PvP : enregistre une autre défense avant de le faire évoluer.",
+	busy = "Termine d'abord ton combat.",
+	dupes = "Il faut 3 doublons de la même rareté (jamais le dernier exemplaire d'une espèce).",
+	coins = "Pas assez de pièces (5 min de revenus).",
+	price = "Le prix a changé : regarde le nouveau prix et réessaie.",
+	save = "Sauvegarde impossible pour l'instant : réessaie dans un moment (rien n'a été perdu).",
+	changed = "Ta base a changé pendant l'évolution : rien n'a été fait.",
+}
+
+return Evolution
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX67"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX54"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
+<Item class="ServerScriptService" referent="RBX68"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX55"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
 -- Logique serveur complète de Chipe-Œufs (le serveur décide de tout, le client ne fait qu'afficher).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -19050,6 +19422,7 @@ local pendingSaves, saveLater = {}, nil -- profils à sauvegarder en arrière-pl
 local beltBuy -- définie avec le tapis roulant central (section dédiée) ; déclarée ici car le gestionnaire de prompts l'utilise
 -- lot 9b : Calendar (règles pures du calendrier de 30 jours) et Cal (fonctions du bloc « Lot 9b » plus bas) logent dans Lot7 : AUCUNE variable locale de plus (limite de 200 atteinte)
 local Lot7 = { Calendar = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Calendar")), Odds = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Odds")), Cal = {}, luckUntil = 0, luckBy = nil, compPaid = 0, L16 = {} } -- lot 7 : Corbeau, tapis privé, bonus serveur, PolicyService (fonctions ajoutées dans le bloc « Lot 7 » plus bas)
+Lot7.Evolution, Lot7.REvo = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Evolution")), newRemote("Evo") -- idée 2 : évolution des pets (règles pures) ; Evo = serveur -> client (aperçu, résultat)
 -- Lot 10 : 42 icônes d'interface (Config.ICONS = IDs de DÉCAL). Chargées une fois en arrière-plan (InsertService:LoadAsset sous pcall, une seule tentative par
 -- icône), URL d'image (Decal.Texture) publiée en attribut du dossier ReplicatedStorage.Icons ; échec = attribut absent, le client garde l'emoji de repli.
 task.spawn(function()
@@ -19319,7 +19692,7 @@ local function snapshot(s)
 		if sl and sl.k == "e" then
 			slots[i] = { k = "e", t = sl.t, ends = sl.ends }
 		elseif sl then
-			slots[i] = { k = "p", p = sl.p, s = sl.s, m = sl.m, o = sl.o } -- lot 10 : o absent (pet ancien) = « — » côté client
+			slots[i] = { k = "p", p = sl.p, s = sl.s, m = sl.m, o = sl.o, f = sl.f } -- lot 10 : o absent (pet ancien) = « — » côté client ; idée 2 : f = 2 (forme 2)
 		else
 			slots[i] = false
 		end
@@ -19332,6 +19705,7 @@ local function snapshot(s)
 		rb = d.rb,
 		dex = d.dex,
 		mult = gmult(s),
+		evo = d.evo, -- idée 2 : évolutions par espèce
 		cap = cap(s),
 		baseLevelFloor = d.baseLevelFloor,
 		carry = #s.carry,
@@ -19662,7 +20036,7 @@ local function refreshPad(s, i, animate)
 		end)
 		s.labels[i] = Builder.sign(egg, "", Config.TIERS[sl.t].color, 3, 200)
 	else
-		local model, lift, labelY = Builder.pet(sl.p, sl.s, sl.m)
+		local model, lift, labelY = Builder.pet(sl.p, sl.s, sl.m, sl.f) -- idée 2 : forme 2 (agrandie, anneau)
 		model.Parent = content
 		model:PivotTo(pad.part.CFrame * CFrame.new(0, 0.2 + lift, 0))
 		CollectionService:AddTag(model, "Bob")
@@ -19780,7 +20154,7 @@ local function rebuildFollowers(s)
 	end
 	for n, i in ipairs(d.equip) do
 		local sl = d.slots[i]
-		local m = Builder.follower(sl.p, sl.s, sl.m)
+		local m = Builder.follower(sl.p, sl.s, sl.m, sl.f)
 		m.Name = "Follower"
 		m:SetAttribute("OwnerId", s.player.UserId)
 		m:SetAttribute("Idx", n)
@@ -21203,7 +21577,7 @@ end
 
 local function petLabel(s, sl)
 	local def = Config.PETS[sl.p]
-	return string.format("%s %s\n+%s/s", def.emoji, Config.petName(sl.p, sl.s, sl.m), Config.fmt(Config.petIncome(sl.p, sl.s, sl.m) * gmult(s)))
+	return string.format("%s %s%s\n+%s/s", def.emoji, Config.petName(sl.p, sl.s, sl.m), sl.f == 2 and " ★2" or "", Config.fmt(Config.petIncome(sl.p, sl.s, sl.m, sl.f) * gmult(s))) -- idée 2 : forme 2
 end
 
 local function slowTick(dt)
@@ -21778,6 +22152,61 @@ function actions.sellDupes(s)
 	sync(s)
 end
 
+-- IDÉE 2 : évolution d'un pet en forme 2 (règles : Shared/Evolution). Le client n'envoie que l'emplacement (et le prix maximal vu) ; doublons, coût et
+-- interdits sont calculés ici. Sauvegarde PUIS octroi : la copie « après » est sauvegardée, le profil vivant n'est modifié qu'en cas de succès.
+function Lot7.evoCtx(s, maxCost)
+	return { capacity = cap(s), income = income(s), maxCost = maxCost, busy = (s.battle or s.castle or s.pvpPending or s.evoBusy or s.leaving) and true or nil }
+end
+function actions.evoPreview(s, i)
+	if Config.EVOLUTION.enabled ~= true then
+		return
+	end
+	Lot7.REvo:FireClient(s.player, { k = "preview", view = Lot7.Evolution.view(Config, s.data, i, Lot7.evoCtx(s)) })
+end
+function actions.evolve(s, arg)
+	local E = Lot7.Evolution
+	if type(arg) ~= "table" or (arg.maxCost ~= nil and type(arg.maxCost) ~= "number") then
+		return
+	end
+	local plan, code = E.plan(Config, s.data, arg.i, Lot7.evoCtx(s, arg.maxCost))
+	if not plan then
+		notify(s.player, "✨ " .. (E.REFUSE[code] or E.REFUSE.slot), "refuse")
+		Lot7.REvo:FireClient(s.player, { k = "preview", view = E.view(Config, s.data, arg.i, Lot7.evoCtx(s)) })
+		return
+	end
+	local d, player = s.data, s.player
+	s.evoBusy = true
+	local okRun, errRun = pcall(function()
+		if not s.noSave and not Data.save(player, E.stage(d, plan), s.leaving == true) then
+			notify(player, "✨ " .. E.REFUSE.save, "refuse")
+			return
+		end
+		if s.data ~= d or not E.apply(d, plan) then -- impossible tant que les actions sont gelées : la sauvegarde « après » est alors réécrite avec l'état vivant
+			if not s.noSave then
+				Data.save(player, s.data, s.leaving == true)
+			end
+			notify(player, "✨ " .. E.REFUSE.changed, "refuse")
+			return
+		end
+		E.dropIndices(d.equip, plan.sac)
+		for _, j in ipairs(plan.sac) do
+			refreshPad(s, j)
+		end
+		refreshPad(s, plan.i, true)
+		rebuildFollowers(s)
+		local def = Config.PETS[plan.p]
+		notify(player, "✨ " .. def.emoji .. " " .. def.name .. " évolue en forme 2 ! Revenu +" .. math.floor((Config.EVOLUTION.incomeMul - 1) * 100 + 0.5) .. " %, force +" .. math.floor((Config.EVOLUTION.powerMul - 1) * 100 + 0.5) .. " %.", "claim")
+		Lot7.REvo:FireClient(player, { k = "done", i = plan.i, p = plan.p, n = d.evo[tostring(plan.p)] })
+	end)
+	s.evoBusy = nil
+	if not okRun then
+		warn("[Evolution] " .. tostring(errRun))
+	end
+	if sessions[player] == s then
+		sync(s)
+	end
+end
+
 -- Dialogue de la Mère Poule (lot 6) : boutons « J'y vais ! », « Explique encore », « 💡 Un coup de bec », « 🔁 Réécouter » (intentions seulement).
 function actions.henGo(s)
 	return Hen and Hen.go(s)
@@ -21802,7 +22231,8 @@ function actions.rebirth(s)
 	-- (once, starter), passe de combat (season), calendrier et séries (cal, calStreak, calLast, grace, streak), quêtes (jour, semaine, bonus), plumes d'événement,
 	-- sac d'œufs et coffre de débordement, PNJ, réglages, combat / ligues / duels (battle), jetons, parchemins, plumes, titres, cosmétiques, pose, boosts
 	-- payés ou gagnés, XP de dresseur, tickets d'arène, temps de jeu (protection débutant), reçus, succès, index, journal de vol, Corbeau, tapis privé.
-	-- Lot 17 : onb (onboarding) n'est PAS dans la liste : un tutoriel terminé ou passé ne repart jamais à la renaissance.
+	-- Lot 17 : onb (onboarding), showcase (vitrine : bonus daté et recharge d'une semaine) et evo (compteur d'évolutions par espèce) ne sont PAS dans la liste :
+	-- ils survivent. Les formes 2 (slot.f) partent avec les pets posés (slots), comme l'XP des pets.
 	local fresh = Data.default()
 	dropCarry(s)
 	for _, k in ipairs({ "coins", "up", "slots", "equip", "pendingAway", "last" }) do
@@ -22153,6 +22583,9 @@ RAction.OnServerEvent:Connect(function(player, action, arg)
 	end
 	s.lastAct = now
 	s.lastActive = now -- toute action = joueur actif
+	if s.evoBusy and action ~= "sync" then -- idée 2 : aucune autre action pendant la sauvegarde d'une évolution (quelques secondes au plus)
+		return
+	end
 	local fn = actions[action]
 	if fn then
 		local ok, err = pcall(fn, s, arg)
@@ -22205,7 +22638,7 @@ local function battleUnits(s)
 	for _, idx in ipairs(s.data.battle.team) do
 		local sl = validSlot(idx) and s.data.slots[idx]
 		if sl and sl.k == "p" then
-			units[#units + 1] = Battle.unit(Config, sl)
+			units[#units + 1] = Battle.unit(Config, sl, Lot7.Evolution.powerScale(Config, sl)) -- idée 2 : forme 2 = pv et attaque x Config.EVOLUTION.powerMul
 		end
 	end
 	return units
@@ -25436,7 +25869,7 @@ task.spawn(function()
 end)
 
 print("[Chipe-Œufs] serveur prêt")
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX55"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX56"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
 -- Sauvegarde DataStore avec VERROU DE SESSION (un joueur ne peut pas être chargé sur 2 serveurs à la fois :
 -- empêche les pertes et duplications quand on change de serveur vite) + classement global.
 -- Les emplacements vides valent `false` (un tableau JSON ne supporte pas les trous).
@@ -25455,6 +25888,7 @@ local PetXp = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"
 local SeasonMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Season")).new(Config, require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("SeasonData"))) -- lot 16 : migration du passe de combat
 local OnbMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Onboarding")).new(Config.ONBOARDING) -- lot 17 : onboarding (champ onb)
 local Ranked = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Ranked")) -- lot 14 : assainissement de battle.live
+local Evolution = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Evolution")) -- idée 2 : forme des pets (slot.f) et compteur evo
 local Diag = require(script.Parent:WaitForChild("Diag"))
 local ShowcaseMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Showcase")).new(Config) -- idée 3 : assainissement du champ showcase
 
@@ -25498,7 +25932,13 @@ local SAVE_RETRIES = 3
 --   (un serveur plus ancien l'ignore ; un profil sans ce champ reçoit les valeurs neuves).
 -- IDEE 3 (vitrine pet du jour) : + showcase { last, ends } (jour UTC de la dernière vitrine possédée, fin du bonus +5 %), SANS changement de version : champ facultatif assaini
 --   par Showcase.sanitize (idempotent ; un profil v13 sans ce champ reçoit les valeurs neuves, un champ valide n'est jamais réinitialisé).
-local VERSION = 13
+-- v14 (IDÉE 2, évolution des pets) : + evo { ["indice d'espèce"] = nombre d'évolutions } et slot.f = 2 (pet en forme 2, absent = forme 1). Migration v13 -> v14 :
+--   Evolution.migrate pose evo = {} s'il manque, ne touche à rien d'autre (idempotente, jamais de remise à zéro). Changement de version VOULU : un serveur
+--   plus ancien voit « version plus récente » et ne sauvegarde pas (sinon il effacerait evo et compterait une forme 2 comme une forme 1).
+--   DÉPLOIEMENT : publier puis redémarrer TOUS les serveurs ensemble (« Shut down all servers » / mise à jour migrée), comme pour pendingPick (v12) : un serveur
+--   encore en v13 charge un profil v14 sans le sauvegarder (aucune perte, mais la progression faite sur ce serveur n'est pas enregistrée).
+--   Les champs onb (idée 1) et showcase (idée 3) restent facultatifs et sont gardés tels quels en v14.
+local VERSION = 14
 
 -- Anciens poids et seuils de la progression de la base (profils v8 et v9) : servent UNIQUEMENT aux migrations (score de v8, plancher de niveau de v10).
 local LEGACY_WEIGHTS = { 1, 3, 8, 20, 50, 150 }
@@ -25670,6 +26110,7 @@ function Data.default()
 		pendingAway = 0, -- gains hors ligne à récupérer d'un clic (plafonnés à Config.IDLE.offlineMaxSeconds)
 		starter = false, -- pack de départ déjà acheté (achat unique)
 		secrets = {}, -- id de secret -> jour (os.time() // 86400) de la dernière fouille
+		evo = {}, -- idée 2 (v14) : évolutions faites par espèce { ["indice"] = n }
 	}
 	for _, u in ipairs(Config.UPGRADES) do
 		d.up[u.key] = 0
@@ -25786,6 +26227,10 @@ local MIGRATIONS = {
 			saved.once = type(saved.once) == "table" and saved.once or {}
 			saved.once.StarterPack = true
 		end
+	end,
+	[13] = function(saved)
+		-- v13 -> v14 (idée 2) : evo = {} s'il manque ; un compteur existant est gardé (assaini par merge) ; aucun pet ni autre champ touché.
+		Evolution.migrate(saved)
 	end,
 	[3] = function(saved)
 		-- v3 -> v4 : un nouveau chapitre (énigme) est inséré en position 8. Qui avait déjà réussi 8 chapitres ou plus
@@ -25969,6 +26414,7 @@ local function merge(saved)
 	d.firstSeen = math.min(1e6, math.floor(sane(saved.firstSeen, 0)))
 	d.lastSeen = math.min(1e6, math.floor(sane(saved.lastSeen, 0)))
 	d.newbieOff = saved.newbieOff == true
+	d.evo = Evolution.sanitizeCounts(Config, saved.evo) -- idée 2 : compteur d'évolutions par espèce (absent ou corrompu = {}, idempotent)
 	d.pendingAway = math.max(0, sane(saved.pendingAway, 0))
 	if type(saved.battle) == "table" then
 		local b = saved.battle
@@ -26039,6 +26485,7 @@ local function merge(saved)
 			local sl = saved.slots[i]
 			local okT = type(sl) == "table" and ((sl.k == "e" and type(sl.t) == "number" and sl.t == sl.t and sl.t % 1 == 0 and sl.t >= 1 and sl.t <= #Config.TIERS) or (sl.k == "p" and Data.validPet(sl)))
 			if okT then
+				Evolution.sanitizeForm(sl) -- idée 2 : f = 2 sur un pet (forme 2), sinon retiré (œuf, valeur invalide)
 				if sl.k == "p" then
 					sl.x = PetXp.sanitize(sl.x) -- lot 12 B : XP cumulée bornée au niveau 20 (avant : min(1e7, ...)) ; lot 9 : XP du pet (lot 12)
 					-- lot 10 : compteur « 1 sur N » figé à l'éclosion (o) et version de la table de référence (ov). Facultatifs : un pet plus ancien n'en a pas
@@ -26440,7 +26887,7 @@ function Data.pvpTop(season, count)
 end
 
 return Data
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX56"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX57"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
 -- Construit TOUT le visuel avec des Parts, matériaux et particules de base Roblox (aucun asset externe).
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
@@ -26875,13 +27322,31 @@ local function customPet(petIdx, size)
 	return clone, lift, labelY
 end
 
-function Builder.pet(petIdx, sizeIdx, mutIdx)
+-- Idée 2 : forme 2 (f = 2) = même modèle, agrandi de Config.EVOLUTION.visualScale, avec un anneau lumineux (tag EggHalo : tourné par le client).
+-- Aucune nouvelle ressource ; 1 Part de plus. Retourne (lift, labelY) mis à l'échelle. Sans effet pour la forme 1.
+local function evolveLook(model, f, lift, labelY)
+	local evo = Config.EVOLUTION
+	if f ~= 2 or not evo or not model.PrimaryPart then
+		return lift, labelY
+	end
+	local k = evo.visualScale or 1
+	pcall(function()
+		model:ScaleTo(model:GetScale() * k)
+	end)
+	local ext = model:GetExtentsSize()
+	addHalo(model.PrimaryPart, { color = evo.haloColor, transparency = evo.haloTransparency or 0.45, shape = "ring", scale = math.max(ext.X, ext.Z) / 3.2 * 1.15, spin = evo.haloSpin or 0 })
+	model:SetAttribute("Form", 2)
+	return lift * k, labelY * k
+end
+
+function Builder.pet(petIdx, sizeIdx, mutIdx, form)
 	local def = Config.PETS[petIdx]
 	local size = Config.SIZES[sizeIdx]
 	local mut = Config.MUTS[mutIdx]
 	local custom, customLift, customLabel = customPet(petIdx, size)
 	if custom then
 		custom:SetAttribute("Tier", def.tier)
+		customLift, customLabel = evolveLook(custom, form, customLift, customLabel) -- idée 2 : forme 2
 		return custom, customLift, customLabel
 	end
 	local R = 0.9 * math.min(size.scale, 1.6) * math.min(math.max(def.scale or 1, 0.7), 1.3) -- pet procédural : même échelle réduite que les modèles Blender ; lot 11 : taille propre de l'espèce (def.scale, 1 par défaut)
@@ -27051,7 +27516,9 @@ function Builder.pet(petIdx, sizeIdx, mutIdx)
 	model:SetAttribute("Height", lift)
 	CollectionService:AddTag(model, "PetFace") -- visage animé côté client (clignement, regard, bouche)
 	model:SetAttribute("Tier", def.tier) -- états des pets (capacité des raretés élevées)
-	return model, lift, 2.3 * R + 1.5
+	local evoLift, evoLabel = evolveLook(model, form, lift, 2.3 * R + 1.5) -- idée 2 : forme 2 (agrandie, anneau lumineux)
+	model:SetAttribute("Height", evoLift)
+	return model, evoLift, evoLabel
 end
 
 ---------------------------------------------------------------- Gardien
@@ -29232,8 +29699,8 @@ function Builder.dressWorld(assets)
 	return ok and total or 0, placed
 end
 
-function Builder.follower(petIdx, sizeIdx, mutIdx)
-	local model = Builder.pet(petIdx, sizeIdx, mutIdx)
+function Builder.follower(petIdx, sizeIdx, mutIdx, form)
+	local model = Builder.pet(petIdx, sizeIdx, mutIdx, form) -- idée 2 : forme 2 (agrandie de visualScale avant la réduction à 0,45)
 	model:ScaleTo(0.45)
 	model:SetAttribute("Seed", petIdx * 31 + sizeIdx * 7 + mutIdx)
 	return model
@@ -29346,7 +29813,7 @@ function Builder.clearPrivateBelt(plot)
 end
 
 return Builder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX57"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX58"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
 -- Règles de jeu PURES (aucun service Roblox) : tirages, revenus, durées, capacités.
 -- Config est injectée (Rules.new(Config)) pour que ces règles se testent hors de Roblox (Lune, voir tests/run.luau).
 local Rules = {}
@@ -29505,7 +29972,7 @@ function Rules.new(Config)
 		for i = 1, capacity do
 			local sl = slots[i]
 			if sl and sl.k == "p" then
-				total += Config.petIncome(sl.p, sl.s, sl.m)
+				total += Config.petIncome(sl.p, sl.s, sl.m, sl.f) -- idée 2 : forme 2 (sl.f = 2) x Config.EVOLUTION.incomeMul
 			end
 		end
 		return total * mult
@@ -29515,7 +29982,7 @@ function Rules.new(Config)
 end
 
 return Rules
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX58"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX59"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
 -- Classement pur des erreurs de services Roblox (testé hors Roblox). Aucune dépendance.
 local Diag = {}
 
@@ -29528,7 +29995,7 @@ function Diag.isStudioApiError(err)
 end
 
 return Diag
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX59"><Properties><string name="Name">HenQuest</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HenQuest
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX60"><Properties><string name="Name">HenQuest</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HenQuest
 -- REFONTE lot 6 : énigme de la Mère Poule côté SERVEUR (étapes guidées : plumes, runes, berceuse). Toutes les règles sont dans ReplicatedStorage/Riddle (pur,
 -- testé) ; ici : l'état par joueur, les prompts, les 4 plumes du jour, la récompense, l'effet collectif et le journal.
 -- Principe : le client n'envoie que des INTENTIONS (« Parler », « Ramasser », toucher une pierre, 4 boutons du dialogue) ; chaque distance, chaque étape,
@@ -30047,7 +30514,7 @@ function HenQuest.new(ctx)
 end
 
 return HenQuest
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX60"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX61"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
 -- Décor de la carte (REFONTE lot 2 : carte 700 x 500, géométrie de MapGeo) : place du marché, territoires, chemins, eau, château, arène, relief,
 -- secrets. Tout en Parts de base ; les outils de construction de Builder sont injectés (h.part, h.ball, h.tree, h.torch, h.sign). Chaque fonction
 -- retourne le nombre de Parts créées (budget mobile).
@@ -30791,7 +31258,7 @@ function Scenery.secrets(h, parent, cfg)
 end
 
 return Scenery
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX61"><Properties><string name="Name">Kiosk</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Kiosk
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX62"><Properties><string name="Name">Kiosk</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Kiosk
 -- LOT 8B-kiosque : KIOSQUE CENTRAL de la place (comptoir face à la halle). Modèle Blender hub.kiosk (id 90238570290603) avec REPLI PROCEDURAL obligatoire :
 -- si le chargement échoue (Assets désactivé, délai, modèle vide, trop lourd, mal dimensionné), un kiosque en Parts de base est construit à la place, avec les
 -- mêmes noms de panneaux, donc les mêmes prompts. 4 interactions par ProximityPrompt (étiquetés « KioskPrompt », attribut KioskAction) :
@@ -31456,7 +31923,7 @@ function Kiosk.handle(player, action, ctx)
 end
 
 return Kiosk
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX62"><Properties><string name="Name">Sellers</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Sellers
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX63"><Properties><string name="Name">Sellers</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Sellers
 -- LOT 16 : 8 VENDEURS PNJ du hub, un par catégorie de la boutique du kiosque. Modèle Blender par vendeur (SellersData.VENDORS[i].asset) avec REPLI
 -- PROCEDURAL obligatoire (étal simple + silhouette + enseigne), mêmes noms de pièces (Etiquette, Lueur), donc mêmes prompts. Ils ne bougent pas, n'interpellent
 -- jamais. Chaque vendeur porte une étiquette flottante (BillboardGui, 60 studs) et un ProximityPrompt « Parler » qui ouvre la boutique du kiosque sur son onglet.
@@ -31960,7 +32427,7 @@ function Sellers.handle(player, action, ctx)
 end
 
 return Sellers
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX63"><Properties><string name="Name">PvpLive</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/PvpLive
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX64"><Properties><string name="Name">PvpLive</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/PvpLive
 -- LOT 14 : transport du classé en direct. Toutes les décisions sont dans ReplicatedStorage/Shared/Ranked (pur) ; ce module ne fait que
 -- les appliquer avec un RUNTIME INJECTÉ (tests : faux runtime de tests/lot14.luau ; jeu : PvpLive.robloxRuntime, MemoryStore + TeleportService).
 -- Aucun yield ici en dehors des appels au runtime ; chaque appel réseau est dans un pcall (une panne MemoryStore = un tour sans effet,
@@ -32656,7 +33123,7 @@ function PvpLive.robloxRuntime(Config, hooks)
 end
 
 return PvpLive
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX64"><Properties><string name="Name">Decor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Decor
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX65"><Properties><string name="Name">Decor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Decor
 -- Lot 8B-décor : pose des modèles Blender de DÉCOR DE CARTE (lots 15, 16, 17) avec repli procédural. Données : ReplicatedStorage/Shared/DecorData.
 --   Decor.plan(G, config, data, deps)          : plan PUR (aucun Instance) : positions, rotations, empreintes ; déterministe ; testé hors de Roblox.
 --   Decor.build(parent, G, config, deps)       : charge les modèles manquants (Assets.loadMany : lots parallèles, délai, un nouvel essai), pose chaque exemplaire
@@ -33882,7 +34349,7 @@ function Decor.refresh(handle)
 end
 
 return Decor
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX65"><Properties><string name="Name">HouseDecor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HouseDecor   (lot 8B-meubles, NON INTÉGRÉ : voir roblox/HOUSEDECOR_INTEGRATION_NOTES.md)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX66"><Properties><string name="Name">HouseDecor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HouseDecor   (lot 8B-meubles, NON INTÉGRÉ : voir roblox/HOUSEDECOR_INTEGRATION_NOTES.md)
 -- Place le décor intérieur d'une maison selon son niveau (données : ReplicatedStorage/Shared/HouseDecorData).
 --   HouseDecor.apply(houseModel, level, config) -> rapport { placed, kept, removed, loaded, fallback, parts }
 --   * idempotent : rappeler apply avec le même niveau ne crée rien ; monter de niveau ajoute seulement le nouveau décor ;
@@ -34111,7 +34578,7 @@ function HouseDecor.resetCache()
 end
 
 return HouseDecor
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX66"><Properties><string name="Name">Telemetry</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Telemetry
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX67"><Properties><string name="Name">Telemetry</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Telemetry
 -- LOT 9 : 12 métriques de rythme envoyées à AnalyticsService (Creator Hub > Analytics), SANS donnée personnelle (aucun nom, aucun identifiant
 -- en champ : AnalyticsService rattache lui-même l'événement au joueur). Tout appel est sous pcall ; service indisponible (Studio, panne) = rien.
 -- Débit : au plus 1 événement par seconde et par joueur (file de 16 par joueur, la plus ancienne jetée au-delà), vidée par Telemetry.step.
@@ -34337,7 +34804,7 @@ end
 
 return Telemetry
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX86"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX85"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX68"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
+<Item class="StarterPlayer" referent="RBX87"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX86"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX69"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
 -- Interface 100 % générée par code (aucune image à importer).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -34662,6 +35129,19 @@ local function toast(msg)
 	TweenService:Create(sc, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 	Debris:AddItem(t, 3.2)
 end
+-- Lot 17 (idée 2, évolution des pets, DÉSACTIVÉE : Config.EVOLUTION.enabled = false) : réception seule. Le serveur répond sur « Evo » à evoPreview / evolve ;
+-- l'aperçu est gardé (L15.evoView) pour la future fiche « ✨ Évoluer » (non faite) ; aucun calcul ici, le serveur décide doublons, coût et interdits.
+L15.REvo = Remotes:WaitForChild("Evo")
+L15.REvo.OnClientEvent:Connect(function(m)
+	if type(m) ~= "table" then
+		return
+	end
+	if m.k == "preview" and type(m.view) == "table" then
+		L15.evoView = m.view
+	elseif m.k == "done" then
+		L15.evoView = nil
+	end
+end)
 
 ---------------------------------------------------------------- Pop d'éclosion
 local pop = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.3, 0), Size = UDim2.fromOffset(340, 240), BackgroundTransparency = 1, Visible = false, ZIndex = 10 }, gui)
@@ -37533,7 +38013,7 @@ do
 		end
 	end)
 end
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX69"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX70"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
 -- Animations locales (aucun coût réseau). Chaque animation est activable dans Config.Animations et exécutée par Easing.guard :
 -- sous pcall, et désactivée pour la session si elle lève une erreur. Les valeurs (courbes, phases, confettis) viennent du module
 -- pur Easing, testé hors de Roblox. Aucune animation n'est nécessaire au gameplay.
@@ -38095,7 +38575,7 @@ Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
 		end)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX70"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX71"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
 -- Cinématiques courtes, aux moments clés seulement : intro (la ferme, Mère Poule, les œufs, le but) et mini tutoriel au premier lancement,
 -- première zone débloquée, premier pet rare. Toutes skippables (bouton, Entrée, manette B), réglables dans Config.Cinematics, exécutées
 -- sous pcall (Easing.guard), et JAMAIS bloquantes : le joueur garde le contrôle de son personnage, le jeu continue, la caméra est
@@ -38747,7 +39227,7 @@ replay.Event:Connect(function(kind)
 		begin("tutorial", Config.CINE.tutorial, {}, false)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX71"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX72"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
 -- Ambiance propre à chaque zone : en entrant dans un domaine (ou en revenant à l'arène), l'éclairage, l'atmosphère et la teinte de l'image
 -- glissent doucement vers les réglages de Config.LIGHTING (zone de lumière : Config.lightingZoneAt ; modification locale : n'affecte que ce joueur). Coupable avec
 -- Config.Animations.zoneAmbience. Une erreur désactive l'ambiance pour la session sans gêner le jeu.
@@ -38893,7 +39373,7 @@ task.spawn(function()
 		task.wait(0.5)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX72"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Culling
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX73"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Culling
 -- Masque les zones (territoires) éloignées du joueur : au-delà de Config.Culling.cullAt studs du bord d'une zone, ses Parts passent en transparence locale totale
 -- (LocalTransparencyModifier = 1) et ses lumières, particules, faisceaux, feux et étiquettes sont coupés ; en dessous de showAt, tout revient. Rien n'est détruit ni
 -- déplacé : les collisions et la réplication serveur ne changent pas. Découpé en lots par image, coupé par Config.Culling.enabled = false.
@@ -38976,7 +39456,7 @@ task.spawn(function()
 		end
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX73"><Properties><string name="Name">LightLod</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/LightLod
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX74"><Properties><string name="Name">LightLod</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/LightLod
 -- Niveau de détail des effets (lot graphismes, budget mobile) : au plus Config.GRAPHICS.perf.maxPointLights PointLight de la carte sont allumées (les plus proches de la
 -- caméra, à moins de lightRange studs, choix de Graphics.selectLights) ; les émetteurs de particules, faisceaux, feux, fumées et étincelles au-delà de fxCullAt studs sont
 -- coupés et rallumés sous fxShowAt (hystérésis de Culling.decide). Rien n'est détruit ni déplacé ; seules les propriétés Enabled changent, et SEULEMENT pour les objets que ce
@@ -39088,7 +39568,7 @@ task.spawn(function()
 		end
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX74"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX75"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
 -- Effet de révélation d'un œuf, 100 % dessiné par le code (Frames, UIGradient, UIStroke, UICorner, TweenService) : étoile lumineuse centrale
 -- colorée selon la rareté, halo, rayons qui tournent, anneaux qui s'étendent, étincelles, libellé « ŒUF SECRET ». Aucun asset externe.
 -- Le style (nombre de rayons, d'anneaux, de particules) vient de Reveal.style : l'option mobile le réduit. Aucune erreur ne sort d'ici.
@@ -39203,7 +39683,7 @@ function RevealFx.play(parent, style, center)
 end
 
 return RevealFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX75"><Properties><string name="Name">SlotFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/SlotFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX76"><Properties><string name="Name">SlotFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/SlotFx
 -- Écran de tirage « machine à sous » (rareté / taille / mutation) avant la révélation d'un œuf : 3 colonnes qui défilent comme des rouleaux, ralentissent et
 -- s'arrêtent une à une (secousse et étincelles à chaque arrêt), bannière « SECRET ! » sur un tirage secret, phénix lumineux avec cercle runique dès le
 -- palier Légendaire. 100 % dessiné par le code ; le plan (positions, arrêts) vient de Reveal.slotPlan et le résultat affiché est TOUJOURS le tirage réel.
@@ -39392,7 +39872,7 @@ function SlotFx.play(parent, plan, cell, opts)
 end
 
 return SlotFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX76"><Properties><string name="Name">MiniMapUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/MiniMapUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX77"><Properties><string name="Name">MiniMapUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/MiniMapUi
 -- Mini-carte ronde dessinée par le code : un cadre, des pastilles réutilisées (au plus Config.MINIMAP.maxDots, jamais créées en cours de route), mise à jour
 -- Config.MINIMAP.hz fois par seconde. Points : toi (centre), ta base, les zones (grisées si verrouillées), les portails de voyage rapide, les gardiens proches.
 -- Bouton 🗺 pour l'afficher ou la masquer. Tout sous pcall.
@@ -39548,7 +40028,7 @@ function MiniMapUi.start(Config, MiniMap, player, gui, getState, UserInputServic
 end
 
 return MiniMapUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX77"><Properties><string name="Name">BattleUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX78"><Properties><string name="Name">BattleUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleUi
 -- Arène des pets (PvE) : écran d'équipe (3 pets de la collection, type affiché), choix de l'étage de la tour, écran de combat (barres de PV, icônes de type,
 -- flèche d'avantage, journal court, minuteur de tour), écran de résultat avec récompenses. 100 % code. Le client N'ENVOIE QU'UNE INTENTION par tour
 -- (« attack », « skill », « swapN ») : tout le résultat vient du serveur (événements rejoués ici). Aucune erreur ne sort d'ici.
@@ -40433,7 +40913,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 end
 
 return BattleUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX78"><Properties><string name="Name">BattleIntro</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleIntro   (lot 10, B.4)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX79"><Properties><string name="Name">BattleIntro</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleIntro   (lot 10, B.4)
 -- Intro de combat, 3 s au maximum, passable (tap après 1 s) : deux bandeaux glissent depuis les bords (joueur à gauche, adversaire à droite) avec portrait, nom, ligue,
 -- trophées, ratio « 124 V / 37 D (77 %) » et 3 vignettes de pets (type + compteur de rareté) ; « VS » qui frappe (échelle 2 -> 1, secousse 0,3 s, son « fanfare » à 0,5) ;
 -- flèche d'avantage de type ; décompte 3-2-1 si demandé. 100 % code. Le plan vient de ReplicatedStorage/IntroPlan (pur). Rien ne s'exécute à l'import, aucun require.
@@ -40658,7 +41138,7 @@ function BattleIntro.play(parent, plan, opts)
 end
 
 return BattleIntro
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX79"><Properties><string name="Name">BattleScene</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleScene   (refonte de la présentation du combat, vue face à face)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX80"><Properties><string name="Name">BattleScene</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleScene   (refonte de la présentation du combat, vue face à face)
 -- Construit l'écran de combat : une scène 3D dans un ViewportFrame (fond de ciel, sol de sable ou d'herbe, décor en arc, deux socles circulaires lumineux, une créature
 -- procédurale par camp, caméra fixe en léger angle), la carte de l'adversaire (haut à droite : nom, niveau, barre de PV verte, points d'état de l'équipe), la carte du
 -- joueur (bas à gauche : nom, niveau, PV chiffrés, points d'état, pastilles de charge), le bandeau de journal (bas) et les boutons d'action (bas à droite : Attaque,
@@ -41665,7 +42145,7 @@ function BattleScene.create(o)
 end
 
 return BattleScene
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX80"><Properties><string name="Name">HatchFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HatchFx   (lot 10, B.3)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX81"><Properties><string name="Name">HatchFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HatchFx   (lot 10, B.3)
 -- Exécute le plan d'éclosion calculé par ReplicatedStorage/HatchPlan (10 animations, une par rareté). 100 % dessiné par le code : Frames, TextLabels, UICorner,
 -- UIGradient, UIStroke, TweenService, plus un ColorCorrectionEffect temporaire (teinte / désaturation) et le champ de vision de la caméra (zoom). Aucun asset.
 -- Tout est sous pcall ; durée <= 8 s ; l'œuf, la caméra et l'interface sont TOUJOURS restitués (fin normale, passage par un tap, erreur, ou chien de garde à durée + 0,6 s).
@@ -42413,7 +42893,7 @@ function HatchFx.play(parent, plan, opts)
 end
 
 return HatchFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX81"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/TypeFx   (lot 10, B.6)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX82"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/TypeFx   (lot 10, B.6)
 -- Effets d'attaque par type (Feu, Eau, Plante, Glace, Foudre, Terre, Ciel, Ombre, Lumière) pour l'écran de combat : attaque de base (0,5 s) et spécial (1,2 s, cercle runique sous
 -- l'attaquant + secousse 0,4 s), plus le texte d'efficacité flottant. 100 % dessiné par le code (Frames, TextLabels, UICorner, UIGradient, UIStroke, TweenService), aucun asset.
 -- Les DONNÉES viennent de ReplicatedStorage/TypeFx (table DATA, exposée plus tard comme Config.TYPE_FX) et sont PASSÉES en paramètre : ce module n'a aucun require et
@@ -42813,7 +43293,7 @@ function TypeFx.floatText(parent, text, rgb, x, y)
 end
 
 return TypeFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX82"><Properties><string name="Name">BaseUpgradeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayer/StarterPlayerScripts/BaseUpgradeFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX83"><Properties><string name="Name">BaseUpgradeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayer/StarterPlayerScripts/BaseUpgradeFx
 -- Montée de niveau de la maison (REFONTE lot 5, D.4), côté client : échafaudage de bois (Parts temporaires locales), nuage de poussière + onde (VfxKit),
 -- l'ancienne maison s'enfonce, la nouvelle monte avec squash & stretch. Le calendrier vient du module pur Upgrade (4,5 s) ; la bannière, la fanfare et les
 -- confettis viennent de la notification serveur « levelup » (au début de la fête). Le serveur garde la nouvelle maison sous le sol puis la remet en place
@@ -43096,7 +43576,7 @@ function BaseUpgradeFx.start(env)
 end
 
 return BaseUpgradeFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX83"><Properties><string name="Name">HenUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HenUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX84"><Properties><string name="Name">HenUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HenUi
 -- REFONTE lot 6 : interface de l'énigme de la Mère Poule. Tout est local au joueur et sous pcall ; le serveur reste autoritaire (le client n'envoie que
 -- des intentions : « henGo », « henExplain », « henHint », « henReplay »).
 --  - bulle de dialogue en bas (texte écrit à Config.HEN.bubbleCps caractères/s, « Suivant », boutons selon le contexte, passable) ;
@@ -43558,7 +44038,7 @@ function HenUi.start(ctx)
 end
 
 return HenUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX84"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX85"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
 -- Icônes de richesse dessinées par le code (Frames, UICorner, UIStroke, UIGradient) : 1 pièce, petite pile, grosse pile, coffre.
 -- Aucune image ni identifiant. Retourne le conteneur ; aucune erreur ne sort d'ici (pcall) : nil si la construction échoue.
 local CoinIcon = {}

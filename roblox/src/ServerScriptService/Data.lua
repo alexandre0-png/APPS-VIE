@@ -17,6 +17,7 @@ local PetXp = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"
 local SeasonMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Season")).new(Config, require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("SeasonData"))) -- lot 16 : migration du passe de combat
 local OnbMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Onboarding")).new(Config.ONBOARDING) -- lot 17 : onboarding (champ onb)
 local Ranked = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Ranked")) -- lot 14 : assainissement de battle.live
+local Evolution = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Evolution")) -- idée 2 : forme des pets (slot.f) et compteur evo
 local Diag = require(script.Parent:WaitForChild("Diag"))
 local ShowcaseMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Showcase")).new(Config) -- idée 3 : assainissement du champ showcase
 
@@ -60,7 +61,13 @@ local SAVE_RETRIES = 3
 --   (un serveur plus ancien l'ignore ; un profil sans ce champ reçoit les valeurs neuves).
 -- IDEE 3 (vitrine pet du jour) : + showcase { last, ends } (jour UTC de la dernière vitrine possédée, fin du bonus +5 %), SANS changement de version : champ facultatif assaini
 --   par Showcase.sanitize (idempotent ; un profil v13 sans ce champ reçoit les valeurs neuves, un champ valide n'est jamais réinitialisé).
-local VERSION = 13
+-- v14 (IDÉE 2, évolution des pets) : + evo { ["indice d'espèce"] = nombre d'évolutions } et slot.f = 2 (pet en forme 2, absent = forme 1). Migration v13 -> v14 :
+--   Evolution.migrate pose evo = {} s'il manque, ne touche à rien d'autre (idempotente, jamais de remise à zéro). Changement de version VOULU : un serveur
+--   plus ancien voit « version plus récente » et ne sauvegarde pas (sinon il effacerait evo et compterait une forme 2 comme une forme 1).
+--   DÉPLOIEMENT : publier puis redémarrer TOUS les serveurs ensemble (« Shut down all servers » / mise à jour migrée), comme pour pendingPick (v12) : un serveur
+--   encore en v13 charge un profil v14 sans le sauvegarder (aucune perte, mais la progression faite sur ce serveur n'est pas enregistrée).
+--   Les champs onb (idée 1) et showcase (idée 3) restent facultatifs et sont gardés tels quels en v14.
+local VERSION = 14
 
 -- Anciens poids et seuils de la progression de la base (profils v8 et v9) : servent UNIQUEMENT aux migrations (score de v8, plancher de niveau de v10).
 local LEGACY_WEIGHTS = { 1, 3, 8, 20, 50, 150 }
@@ -232,6 +239,7 @@ function Data.default()
 		pendingAway = 0, -- gains hors ligne à récupérer d'un clic (plafonnés à Config.IDLE.offlineMaxSeconds)
 		starter = false, -- pack de départ déjà acheté (achat unique)
 		secrets = {}, -- id de secret -> jour (os.time() // 86400) de la dernière fouille
+		evo = {}, -- idée 2 (v14) : évolutions faites par espèce { ["indice"] = n }
 	}
 	for _, u in ipairs(Config.UPGRADES) do
 		d.up[u.key] = 0
@@ -348,6 +356,10 @@ local MIGRATIONS = {
 			saved.once = type(saved.once) == "table" and saved.once or {}
 			saved.once.StarterPack = true
 		end
+	end,
+	[13] = function(saved)
+		-- v13 -> v14 (idée 2) : evo = {} s'il manque ; un compteur existant est gardé (assaini par merge) ; aucun pet ni autre champ touché.
+		Evolution.migrate(saved)
 	end,
 	[3] = function(saved)
 		-- v3 -> v4 : un nouveau chapitre (énigme) est inséré en position 8. Qui avait déjà réussi 8 chapitres ou plus
@@ -531,6 +543,7 @@ local function merge(saved)
 	d.firstSeen = math.min(1e6, math.floor(sane(saved.firstSeen, 0)))
 	d.lastSeen = math.min(1e6, math.floor(sane(saved.lastSeen, 0)))
 	d.newbieOff = saved.newbieOff == true
+	d.evo = Evolution.sanitizeCounts(Config, saved.evo) -- idée 2 : compteur d'évolutions par espèce (absent ou corrompu = {}, idempotent)
 	d.pendingAway = math.max(0, sane(saved.pendingAway, 0))
 	if type(saved.battle) == "table" then
 		local b = saved.battle
@@ -601,6 +614,7 @@ local function merge(saved)
 			local sl = saved.slots[i]
 			local okT = type(sl) == "table" and ((sl.k == "e" and type(sl.t) == "number" and sl.t == sl.t and sl.t % 1 == 0 and sl.t >= 1 and sl.t <= #Config.TIERS) or (sl.k == "p" and Data.validPet(sl)))
 			if okT then
+				Evolution.sanitizeForm(sl) -- idée 2 : f = 2 sur un pet (forme 2), sinon retiré (œuf, valeur invalide)
 				if sl.k == "p" then
 					sl.x = PetXp.sanitize(sl.x) -- lot 12 B : XP cumulée bornée au niveau 20 (avant : min(1e7, ...)) ; lot 9 : XP du pet (lot 12)
 					-- lot 10 : compteur « 1 sur N » figé à l'éclosion (o) et version de la table de référence (ov). Facultatifs : un pet plus ancien n'en a pas

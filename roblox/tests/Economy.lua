@@ -100,7 +100,7 @@ function Economy.run(Config, Rules, minutes, opts)
 		for i = 1, cap() do
 			local sl = slots[i]
 			if sl and sl.k == "p" then
-				local v = Config.petIncome(sl.p, sl.s, sl.m)
+				local v = Config.petIncome(sl.p, sl.s, sl.m, sl.f) -- idée 2 : forme 2 (f absent sans opts.evolve : identique)
 				if not wv or v < wv then
 					wi, wv = i, v
 				end
@@ -382,6 +382,46 @@ function Economy.run(Config, Rules, minutes, opts)
 						log.firstEggTier[bestT] = log.firstEggTier[bestT] or t
 						acted = true
 					end
+				end
+			end
+		end
+		-- Idée 2 (opts.evolve = { E = module Evolution, cfg = Config avec EVOLUTION.enabled, share = part des pièces au plus }) : le robot fait évoluer
+		-- au plus un pet par pas, le plus rentable d'abord, dès que 3 doublons de sa rareté existent et que le coût (5 min de revenu) tient dans `share`
+		-- de ses pièces. Absent (tous les tests du lot 9) : rien ne change, aucun tirage consommé.
+		if opts.evolve then
+			local ev = opts.evolve
+			log.evolved = log.evolved or 0
+			local n, byTier = cap(), {}
+			for i = 1, n do
+				local sl = slots[i]
+				if sl and sl.k == "p" then
+					local tr = Config.PETS[sl.p].tier
+					byTier[tr] = (byTier[tr] or 0) + 1
+				end
+			end
+			local order = {}
+			for i = 1, n do
+				local sl = slots[i]
+				if sl and sl.k == "p" and sl.f ~= 2 and (byTier[Config.PETS[sl.p].tier] or 0) >= 4 then
+					order[#order + 1] = { i = i, v = Config.petIncome(sl.p, sl.s, sl.m) }
+				end
+			end
+			table.sort(order, function(a, b)
+				if a.v ~= b.v then
+					return a.v > b.v
+				end
+				return a.i < b.i
+			end)
+			local d = { coins = coins, slots = slots, equip = {}, evo = ev.counts or {}, battle = { team = {}, pvp = { defense = {} } } }
+			ev.counts = d.evo
+			local curInc = income()
+			for _, o in ipairs(order) do
+				local plan = ev.E.plan(ev.cfg, d, o.i, { capacity = n, income = curInc })
+				if plan and plan.cost <= coins * (ev.share or 0.5) and ev.E.apply(d, plan) then
+					coins = d.coins
+					log.evolved = log.evolved + 1
+					log.firstEvolve = log.firstEvolve or t
+					break
 				end
 			end
 		end

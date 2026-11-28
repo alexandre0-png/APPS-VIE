@@ -81,7 +81,7 @@ return function(env)
 	local s = hooks.session(T.p1)
 	local d = s and s.data
 	check("Migration v12 -> v13 : pièces, sac gardés ; seasonXp versé dans season.xp ; starter -> once.StarterPack ; overflow / once / emote / arenaTk assainis ; cosmétique de saison gardé" .. errs(),
-		d ~= nil and d.ver == 13 and d.coins >= 5000 and #d.eggBag == 1 and d.seasonXp == 0 and type(d.season) == "table" and d.season.xp == 300 and d.season.n == 1 and d.once.StarterPack == true
+		d ~= nil and d.ver == 14 and d.coins >= 5000 and #d.eggBag == 1 and d.seasonXp == 0 and type(d.season) == "table" and d.season.xp == 300 and d.season.n == 1 and d.once.StarterPack == true
 		and d.overflow["3"] == 2 and d.overflow["x"] == nil and d.overflow["99"] == nil and d.doubleUntil == 0 and d.emote == 0 and d.arenaTk.day == 0 and d.cosm.s1_pose == true and d.cosm.bad == nil)
 	RT.removePlayer(T.p1)
 	RT.step(3)
@@ -89,7 +89,7 @@ return function(env)
 	RT.step(3)
 	s = hooks.session(T.p1)
 	d = s and s.data
-	check("Relecture du profil v13 : rien ne change (idempotent : season.xp 300, pas de second versement)", d ~= nil and d.ver == 13 and d.season.xp == 300 and d.overflow["3"] == 2)
+	check("Relecture du profil v13 : rien ne change (idempotent : season.xp 300, pas de second versement)", d ~= nil and d.ver == 14 and d.season.xp == 300 and d.overflow["3"] == 2)
 	s.graceUntil, d.coins = 0, 1e9
 
 	---------------------------------------------------------------- 2. Contrôle AVANT l'invite d'achat
@@ -266,7 +266,7 @@ return function(env)
 	RT.removePlayer(T.p1)
 	RT.step(3)
 	local r = ds.data.P_16001 and ds.data.P_16001.v
-	check("Sauvegarde v13 : season, overflow, once, doubleUntil, emote, arenaTk écrits", r ~= nil and r.ver == 13 and type(r.season) == "table" and r.season.premium == 1 and type(r.overflow) == "table" and r.once.EmoteVictory2 == true and r.emote == 2 and type(r.arenaTk) == "table")
+	check("Sauvegarde v13 : season, overflow, once, doubleUntil, emote, arenaTk écrits", r ~= nil and r.ver == 14 and type(r.season) == "table" and r.season.premium == 1 and type(r.overflow) == "table" and r.once.EmoteVictory2 == true and r.emote == 2 and type(r.arenaTk) == "table")
 	RT.removePlayer(T.p2)
 	RT.removePlayer(T.p3)
 	RT.step(3)

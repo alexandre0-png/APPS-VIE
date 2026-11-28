@@ -408,7 +408,7 @@ return function(env)
 	T.d = T.s and T.s.data
 	check(
 		"Profil neuf : onb = étape 1 active, version 1, pas de skip" .. errs(),
-		T.d ~= nil and type(T.d.onb) == "table" and T.d.onb.step == 1 and T.d.onb.v == 1 and T.d.onb.skip == false and T.d.ver == 13
+		T.d ~= nil and type(T.d.onb) == "table" and T.d.onb.step == 1 and T.d.onb.v == 1 and T.d.onb.skip == false and T.d.ver == 14
 	)
 	T.st0 = lastState(T.p)
 	check(
@@ -499,7 +499,7 @@ return function(env)
 	T.r = RT.addPlayer("OnbC", 17003, { from = "hub", partyId = "L17A", size = 5, late = false })
 	RT.step(3)
 	T.sr = hooks.session(T.r)
-	check("Profil v13 existant sans onb : onb terminé (legacy), snapshot sans onb, ver 13" .. errs(), T.sr.data.onb.step == 6 and T.sr.data.ver == 13 and lastState(T.r).onb == nil)
+	check("Profil v13 existant sans onb : onb terminé (legacy), snapshot sans onb, migré en v14 (idée 2)" .. errs(), T.sr.data.onb.step == 6 and T.sr.data.ver == 14 and lastState(T.r).onb == nil)
 	check(
 		"Profil v13 existant : pièces, sac, améliorations, éclosions intacts" .. errs(),
 		T.sr.data.coins >= 4321 and #T.sr.data.eggBag == 1 and T.sr.data.up.food == 2 and T.sr.data.hatched == 12 and T.sr.data.once.StarterPack == true

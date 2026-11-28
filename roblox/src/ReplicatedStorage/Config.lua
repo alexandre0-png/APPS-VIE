@@ -230,6 +230,17 @@ Config.MUTS = {
 	{ name = "Céleste", mult = 20, weight = 0.1, color = Color3.fromRGB(255, 243, 176), aura = true }, -- lot 9 (A.6)
 }
 
+-- IDÉE 2 : évolution des pets en « forme 2 » (règles pures : Shared/Evolution, tests/evolution.luau). Aucune forme payante : coût = `sacrifices` doublons
+-- de la même rareté + `costSeconds` du revenu actuel du joueur (pièces). Forme 2 : revenu x incomeMul (Config.petIncome, 4e argument), pv et attaque
+-- x powerMul en combat (Battle.unit, échelle ; la forme 2 d'une rareté reste sous la forme 1 de la suivante, testé sur les 10 raretés), silhouette
+-- x visualScale + halo (Builder.pet). Interdits : Géant / Colossal (tailles 4, 5), Arc-en-ciel et au-delà (mutations 4 à 6 : Arc-en-ciel, Alien, Céleste).
+-- enabled = false : activer après le test dans Studio (README de idee-evolution) ; même désactivée, un pet déjà en forme 2 garde ses bonus.
+Config.EVOLUTION = {
+	enabled = false, sacrifices = 3, costSeconds = 300, incomeMul = 1.15, powerMul = 1.10, visualScale = 1.15, maxForm = 2,
+	blockedSizes = { [4] = true, [5] = true }, blockedMuts = { [4] = true, [5] = true, [6] = true },
+	haloColor = Color3.fromRGB(255, 236, 140), haloTransparency = 0.45, haloSpin = 1.2,
+}
+
 -- Rivaux PNJ : poids de tirage des œufs (par rareté), vitesses des gardiens en studs/s
 -- (le joueur démarre à 16 : il doit s'entraîner sur le tapis pour battre Mara puis Zed)
 Config.RIVALS = {
@@ -364,8 +375,8 @@ function Config.fmtTime(s)
 	return string.format("%dm%02d", s // 60, s % 60)
 end
 
-function Config.petIncome(p, s, m)
-	return Config.PETS[p].inc * Config.SIZES[s].mult * Config.MUTS[m].mult
+function Config.petIncome(p, s, m, f)
+	return Config.PETS[p].inc * Config.SIZES[s].mult * Config.MUTS[m].mult * ((f == 2 and Config.EVOLUTION) and Config.EVOLUTION.incomeMul or 1) -- idée 2 : forme 2 (f = 2) x incomeMul
 end
 
 -- Revente d'un œuf (jamais rentable : on récupère 25 % du prix, achat puis revente = perte de 75 %).
@@ -384,13 +395,14 @@ function Config.eggSellValue(tier)
 end
 
 -- Doublons à revendre : pour chaque espèce, on garde le pet le plus rentable (revenu, puis indice le plus bas) et on revend les autres.
+-- Idée 2 : un pet en forme 2 (f = 2) compte avec son revenu de forme 2 et n'est JAMAIS revendu par lot (il a coûté 3 doublons).
 -- slots[i] = { k = "p", p, s, m } | { k = "e" } | false ; retourne (liste triée d'indices, valeur totale).
 function Config.dupesToSell(slots, cap)
 	local best = {} -- espèce -> { i, income }
 	for i = 1, cap do
 		local sl = slots[i]
 		if sl and sl.k == "p" then
-			local inc = Config.petIncome(sl.p, sl.s, sl.m)
+			local inc = Config.petIncome(sl.p, sl.s, sl.m, sl.f)
 			local b = best[sl.p]
 			if not b or inc > b.income then
 				best[sl.p] = { i = i, income = inc }
@@ -400,7 +412,7 @@ function Config.dupesToSell(slots, cap)
 	local out, total = {}, 0
 	for i = 1, cap do
 		local sl = slots[i]
-		if sl and sl.k == "p" and best[sl.p].i ~= i then
+		if sl and sl.k == "p" and best[sl.p].i ~= i and sl.f ~= 2 then
 			out[#out + 1] = i
 			total = total + Config.sellValue(sl.p, sl.s, sl.m)
 		end

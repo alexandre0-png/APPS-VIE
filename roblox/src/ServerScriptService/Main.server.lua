@@ -208,6 +208,7 @@ local pendingSaves, saveLater = {}, nil -- profils à sauvegarder en arrière-pl
 local beltBuy -- définie avec le tapis roulant central (section dédiée) ; déclarée ici car le gestionnaire de prompts l'utilise
 -- lot 9b : Calendar (règles pures du calendrier de 30 jours) et Cal (fonctions du bloc « Lot 9b » plus bas) logent dans Lot7 : AUCUNE variable locale de plus (limite de 200 atteinte)
 local Lot7 = { Calendar = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Calendar")), Odds = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Odds")), Cal = {}, luckUntil = 0, luckBy = nil, compPaid = 0, L16 = {} } -- lot 7 : Corbeau, tapis privé, bonus serveur, PolicyService (fonctions ajoutées dans le bloc « Lot 7 » plus bas)
+Lot7.Evolution, Lot7.REvo = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Evolution")), newRemote("Evo") -- idée 2 : évolution des pets (règles pures) ; Evo = serveur -> client (aperçu, résultat)
 -- Lot 10 : 42 icônes d'interface (Config.ICONS = IDs de DÉCAL). Chargées une fois en arrière-plan (InsertService:LoadAsset sous pcall, une seule tentative par
 -- icône), URL d'image (Decal.Texture) publiée en attribut du dossier ReplicatedStorage.Icons ; échec = attribut absent, le client garde l'emoji de repli.
 task.spawn(function()
@@ -477,7 +478,7 @@ local function snapshot(s)
 		if sl and sl.k == "e" then
 			slots[i] = { k = "e", t = sl.t, ends = sl.ends }
 		elseif sl then
-			slots[i] = { k = "p", p = sl.p, s = sl.s, m = sl.m, o = sl.o } -- lot 10 : o absent (pet ancien) = « — » côté client
+			slots[i] = { k = "p", p = sl.p, s = sl.s, m = sl.m, o = sl.o, f = sl.f } -- lot 10 : o absent (pet ancien) = « — » côté client ; idée 2 : f = 2 (forme 2)
 		else
 			slots[i] = false
 		end
@@ -490,6 +491,7 @@ local function snapshot(s)
 		rb = d.rb,
 		dex = d.dex,
 		mult = gmult(s),
+		evo = d.evo, -- idée 2 : évolutions par espèce
 		cap = cap(s),
 		baseLevelFloor = d.baseLevelFloor,
 		carry = #s.carry,
@@ -820,7 +822,7 @@ local function refreshPad(s, i, animate)
 		end)
 		s.labels[i] = Builder.sign(egg, "", Config.TIERS[sl.t].color, 3, 200)
 	else
-		local model, lift, labelY = Builder.pet(sl.p, sl.s, sl.m)
+		local model, lift, labelY = Builder.pet(sl.p, sl.s, sl.m, sl.f) -- idée 2 : forme 2 (agrandie, anneau)
 		model.Parent = content
 		model:PivotTo(pad.part.CFrame * CFrame.new(0, 0.2 + lift, 0))
 		CollectionService:AddTag(model, "Bob")
@@ -938,7 +940,7 @@ local function rebuildFollowers(s)
 	end
 	for n, i in ipairs(d.equip) do
 		local sl = d.slots[i]
-		local m = Builder.follower(sl.p, sl.s, sl.m)
+		local m = Builder.follower(sl.p, sl.s, sl.m, sl.f)
 		m.Name = "Follower"
 		m:SetAttribute("OwnerId", s.player.UserId)
 		m:SetAttribute("Idx", n)
@@ -2361,7 +2363,7 @@ end
 
 local function petLabel(s, sl)
 	local def = Config.PETS[sl.p]
-	return string.format("%s %s\n+%s/s", def.emoji, Config.petName(sl.p, sl.s, sl.m), Config.fmt(Config.petIncome(sl.p, sl.s, sl.m) * gmult(s)))
+	return string.format("%s %s%s\n+%s/s", def.emoji, Config.petName(sl.p, sl.s, sl.m), sl.f == 2 and " ★2" or "", Config.fmt(Config.petIncome(sl.p, sl.s, sl.m, sl.f) * gmult(s))) -- idée 2 : forme 2
 end
 
 local function slowTick(dt)
@@ -2936,6 +2938,61 @@ function actions.sellDupes(s)
 	sync(s)
 end
 
+-- IDÉE 2 : évolution d'un pet en forme 2 (règles : Shared/Evolution). Le client n'envoie que l'emplacement (et le prix maximal vu) ; doublons, coût et
+-- interdits sont calculés ici. Sauvegarde PUIS octroi : la copie « après » est sauvegardée, le profil vivant n'est modifié qu'en cas de succès.
+function Lot7.evoCtx(s, maxCost)
+	return { capacity = cap(s), income = income(s), maxCost = maxCost, busy = (s.battle or s.castle or s.pvpPending or s.evoBusy or s.leaving) and true or nil }
+end
+function actions.evoPreview(s, i)
+	if Config.EVOLUTION.enabled ~= true then
+		return
+	end
+	Lot7.REvo:FireClient(s.player, { k = "preview", view = Lot7.Evolution.view(Config, s.data, i, Lot7.evoCtx(s)) })
+end
+function actions.evolve(s, arg)
+	local E = Lot7.Evolution
+	if type(arg) ~= "table" or (arg.maxCost ~= nil and type(arg.maxCost) ~= "number") then
+		return
+	end
+	local plan, code = E.plan(Config, s.data, arg.i, Lot7.evoCtx(s, arg.maxCost))
+	if not plan then
+		notify(s.player, "✨ " .. (E.REFUSE[code] or E.REFUSE.slot), "refuse")
+		Lot7.REvo:FireClient(s.player, { k = "preview", view = E.view(Config, s.data, arg.i, Lot7.evoCtx(s)) })
+		return
+	end
+	local d, player = s.data, s.player
+	s.evoBusy = true
+	local okRun, errRun = pcall(function()
+		if not s.noSave and not Data.save(player, E.stage(d, plan), s.leaving == true) then
+			notify(player, "✨ " .. E.REFUSE.save, "refuse")
+			return
+		end
+		if s.data ~= d or not E.apply(d, plan) then -- impossible tant que les actions sont gelées : la sauvegarde « après » est alors réécrite avec l'état vivant
+			if not s.noSave then
+				Data.save(player, s.data, s.leaving == true)
+			end
+			notify(player, "✨ " .. E.REFUSE.changed, "refuse")
+			return
+		end
+		E.dropIndices(d.equip, plan.sac)
+		for _, j in ipairs(plan.sac) do
+			refreshPad(s, j)
+		end
+		refreshPad(s, plan.i, true)
+		rebuildFollowers(s)
+		local def = Config.PETS[plan.p]
+		notify(player, "✨ " .. def.emoji .. " " .. def.name .. " évolue en forme 2 ! Revenu +" .. math.floor((Config.EVOLUTION.incomeMul - 1) * 100 + 0.5) .. " %, force +" .. math.floor((Config.EVOLUTION.powerMul - 1) * 100 + 0.5) .. " %.", "claim")
+		Lot7.REvo:FireClient(player, { k = "done", i = plan.i, p = plan.p, n = d.evo[tostring(plan.p)] })
+	end)
+	s.evoBusy = nil
+	if not okRun then
+		warn("[Evolution] " .. tostring(errRun))
+	end
+	if sessions[player] == s then
+		sync(s)
+	end
+end
+
 -- Dialogue de la Mère Poule (lot 6) : boutons « J'y vais ! », « Explique encore », « 💡 Un coup de bec », « 🔁 Réécouter » (intentions seulement).
 function actions.henGo(s)
 	return Hen and Hen.go(s)
@@ -2960,7 +3017,8 @@ function actions.rebirth(s)
 	-- (once, starter), passe de combat (season), calendrier et séries (cal, calStreak, calLast, grace, streak), quêtes (jour, semaine, bonus), plumes d'événement,
 	-- sac d'œufs et coffre de débordement, PNJ, réglages, combat / ligues / duels (battle), jetons, parchemins, plumes, titres, cosmétiques, pose, boosts
 	-- payés ou gagnés, XP de dresseur, tickets d'arène, temps de jeu (protection débutant), reçus, succès, index, journal de vol, Corbeau, tapis privé.
-	-- Lot 17 : onb (onboarding) n'est PAS dans la liste : un tutoriel terminé ou passé ne repart jamais à la renaissance.
+	-- Lot 17 : onb (onboarding), showcase (vitrine : bonus daté et recharge d'une semaine) et evo (compteur d'évolutions par espèce) ne sont PAS dans la liste :
+	-- ils survivent. Les formes 2 (slot.f) partent avec les pets posés (slots), comme l'XP des pets.
 	local fresh = Data.default()
 	dropCarry(s)
 	for _, k in ipairs({ "coins", "up", "slots", "equip", "pendingAway", "last" }) do
@@ -3311,6 +3369,9 @@ RAction.OnServerEvent:Connect(function(player, action, arg)
 	end
 	s.lastAct = now
 	s.lastActive = now -- toute action = joueur actif
+	if s.evoBusy and action ~= "sync" then -- idée 2 : aucune autre action pendant la sauvegarde d'une évolution (quelques secondes au plus)
+		return
+	end
 	local fn = actions[action]
 	if fn then
 		local ok, err = pcall(fn, s, arg)
@@ -3363,7 +3424,7 @@ local function battleUnits(s)
 	for _, idx in ipairs(s.data.battle.team) do
 		local sl = validSlot(idx) and s.data.slots[idx]
 		if sl and sl.k == "p" then
-			units[#units + 1] = Battle.unit(Config, sl)
+			units[#units + 1] = Battle.unit(Config, sl, Lot7.Evolution.powerScale(Config, sl)) -- idée 2 : forme 2 = pv et attaque x Config.EVOLUTION.powerMul
 		end
 	end
 	return units

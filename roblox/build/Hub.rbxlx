@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
-<Item class="Workspace" referent="RBX87"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX140"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX139"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX88"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="Workspace" referent="RBX88"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool></Properties></Item>
+<Item class="ReplicatedStorage" referent="RBX142"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX141"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX89"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -234,6 +234,17 @@ Config.MUTS = {
 	{ name = "Céleste", mult = 20, weight = 0.1, color = Color3.fromRGB(255, 243, 176), aura = true }, -- lot 9 (A.6)
 }
 
+-- IDÉE 2 : évolution des pets en « forme 2 » (règles pures : Shared/Evolution, tests/evolution.luau). Aucune forme payante : coût = `sacrifices` doublons
+-- de la même rareté + `costSeconds` du revenu actuel du joueur (pièces). Forme 2 : revenu x incomeMul (Config.petIncome, 4e argument), pv et attaque
+-- x powerMul en combat (Battle.unit, échelle ; la forme 2 d'une rareté reste sous la forme 1 de la suivante, testé sur les 10 raretés), silhouette
+-- x visualScale + halo (Builder.pet). Interdits : Géant / Colossal (tailles 4, 5), Arc-en-ciel et au-delà (mutations 4 à 6 : Arc-en-ciel, Alien, Céleste).
+-- enabled = false : activer après le test dans Studio (README de idee-evolution) ; même désactivée, un pet déjà en forme 2 garde ses bonus.
+Config.EVOLUTION = {
+	enabled = false, sacrifices = 3, costSeconds = 300, incomeMul = 1.15, powerMul = 1.10, visualScale = 1.15, maxForm = 2,
+	blockedSizes = { [4] = true, [5] = true }, blockedMuts = { [4] = true, [5] = true, [6] = true },
+	haloColor = Color3.fromRGB(255, 236, 140), haloTransparency = 0.45, haloSpin = 1.2,
+}
+
 -- Rivaux PNJ : poids de tirage des œufs (par rareté), vitesses des gardiens en studs/s
 -- (le joueur démarre à 16 : il doit s'entraîner sur le tapis pour battre Mara puis Zed)
 Config.RIVALS = {
@@ -368,8 +379,8 @@ function Config.fmtTime(s)
 	return string.format("%dm%02d", s // 60, s % 60)
 end
 
-function Config.petIncome(p, s, m)
-	return Config.PETS[p].inc * Config.SIZES[s].mult * Config.MUTS[m].mult
+function Config.petIncome(p, s, m, f)
+	return Config.PETS[p].inc * Config.SIZES[s].mult * Config.MUTS[m].mult * ((f == 2 and Config.EVOLUTION) and Config.EVOLUTION.incomeMul or 1) -- idée 2 : forme 2 (f = 2) x incomeMul
 end
 
 -- Revente d'un œuf (jamais rentable : on récupère 25 % du prix, achat puis revente = perte de 75 %).
@@ -388,13 +399,14 @@ function Config.eggSellValue(tier)
 end
 
 -- Doublons à revendre : pour chaque espèce, on garde le pet le plus rentable (revenu, puis indice le plus bas) et on revend les autres.
+-- Idée 2 : un pet en forme 2 (f = 2) compte avec son revenu de forme 2 et n'est JAMAIS revendu par lot (il a coûté 3 doublons).
 -- slots[i] = { k = "p", p, s, m } | { k = "e" } | false ; retourne (liste triée d'indices, valeur totale).
 function Config.dupesToSell(slots, cap)
 	local best = {} -- espèce -> { i, income }
 	for i = 1, cap do
 		local sl = slots[i]
 		if sl and sl.k == "p" then
-			local inc = Config.petIncome(sl.p, sl.s, sl.m)
+			local inc = Config.petIncome(sl.p, sl.s, sl.m, sl.f)
 			local b = best[sl.p]
 			if not b or inc > b.income then
 				best[sl.p] = { i = i, income = inc }
@@ -404,7 +416,7 @@ function Config.dupesToSell(slots, cap)
 	local out, total = {}, 0
 	for i = 1, cap do
 		local sl = slots[i]
-		if sl and sl.k == "p" and best[sl.p].i ~= i then
+		if sl and sl.k == "p" and best[sl.p].i ~= i and sl.f ~= 2 then
 			out[#out + 1] = i
 			total = total + Config.sellValue(sl.p, sl.s, sl.m)
 		end
@@ -2889,7 +2901,7 @@ for key, id in pairs({ vendor_eggs = 138633300069014, vendor_luck = 137414127061
 end
 
 return Config
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX89"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX90"><Properties><string name="Name">Easing</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Easing
 -- Fonctions d'animation PURES (aucun service Roblox, aucun Instance) : courbes, squash & stretch, rebonds, clignements, regards,
 -- paramètres de confettis et garde-fou d'exécution. Testées hors de Roblox (tests/run.luau). Le client (Animations.client.lua)
 -- ne fait qu'appliquer ces valeurs aux objets.
@@ -3185,7 +3197,7 @@ function Easing.guard(isEnabled, failed, name, fn, onError)
 end
 
 return Easing
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX90"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX91"><Properties><string name="Name">Cinema</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Cinema
 -- Logique PURE des cinématiques (aucun service Roblox, aucune Instance) : séquences de plans, lecteur à états (lecture, skip, abandon,
 -- reprise), interpolation de caméra, directeur qui enchaîne une file. Easing est injecté : require(Cinema).new(Easing).
 -- Le client (Cinematics.client.lua) ne fait qu'appliquer ces valeurs à la caméra.
@@ -3365,7 +3377,7 @@ function Cinema.new(Easing)
 end
 
 return Cinema
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX91"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX92"><Properties><string name="Name">VfxKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/VfxKit
 -- Effets visuels 3D : DONNÉES PURES (préréglages nommés = séquences de pièces Blender, émetteurs de particules, faisceau, surbrillance) et
 -- fonctions de planification testées hors de Roblox (qualité Élevé / Moyen / Bas, plafonds mobiles, effets par rareté), puis EXÉCUTION côté
 -- client (VfxKit.play) : chaque pièce est un modèle Blender blanc (`Nom__FFFFFF`, Neon) cloné depuis ReplicatedStorage.VfxTemplates, recoloré
@@ -3711,7 +3723,7 @@ function VfxKit.new(Config, Easing)
 end
 
 return VfxKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX92"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX93"><Properties><string name="Name">CinematicKit</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/CinematicKit
 -- Caméras de cinématique : LOGIQUE PURE (aucun service Roblox) testée hors de Roblox. Un « plan » est une liste de prises { dur, pos, look, toPos, toLook,
 -- fov, toFov, path, ease, shake, slow, text, title, fx, anchor } dans le repère de son ancre ; trajectoires : travelling (linéaire), orbite autour du
 -- point visé, plongée (de haut en bas), zoom dolly (la caméra avance et le champ de vision se resserre). Bandes noires, cartons de titre, tremblement,
@@ -4012,7 +4024,7 @@ function CinematicKit.new(Easing, Cinema)
 end
 
 return CinematicKit
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX93"><Properties><string name="Name">Placement</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Placement
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX94"><Properties><string name="Name">Placement</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Placement
 -- Pose PLANIFIÉE du décor Blender (arbres, rochers, buissons, cabanes, barrières, ponts) : logique PURE, déterministe, testée hors de Roblox.
 -- Principes : une grille de cellules parcourue dans un ordre fixe (aucun tirage libre), chaque objet a une empreinte circulaire ; il n'est posé que si son
 -- empreinte ne touche NI l'eau (lacs, rivières, fontaine, douve), NI un chemin, NI la place, l'arène, un territoire, une base, un secret ou une plume
@@ -4661,7 +4673,7 @@ function Placement.new(Config, MapGeo)
 end
 
 return Placement
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX94"><Properties><string name="Name">MapGeo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MapGeo
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX95"><Properties><string name="Name">MapGeo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MapGeo
 -- REFONTE (lot 2) : géométrie PURE de la carte 700 x 500 (Config.Map2 et Config.TERR), testée hors de Roblox. Source unique pour Builder, Scenery,
 -- Placement, la mini-carte et les tests : bases orientées vers la place (spawn devant), territoires, chemins, eau (lacs, rivières en polylignes,
 -- fontaine, douve), murs invisibles de la rivière du Nord coupés aux ponts, hauteur du sol (plateau du château, collines), accessibilité d'un point.
@@ -5086,7 +5098,7 @@ function MapGeo.new(Config, fresh)
 end
 
 return MapGeo
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX95"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Culling
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX96"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Culling
 -- Masquage des zones éloignées, côté client, SANS toucher à StreamingEnabled : logique PURE testée hors de Roblox. Une zone (domaine : plateau et contenu) plus
 -- loin que `cullAt` du joueur est masquée (transparence locale, lumières, particules et étiquettes coupées) ; elle réapparaît en dessous de `showAt`
 -- (hystérésis : pas de clignotement à la limite). Le travail est découpé en lots (`chunks`) pour ne jamais bloquer une image.
@@ -5124,7 +5136,7 @@ function Culling.chunks(list, size)
 end
 
 return Culling
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX96"><Properties><string name="Name">AssetReportUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/AssetReportUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX97"><Properties><string name="Name">AssetReportUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/AssetReportUi
 -- Diagnostic visible des modèles Blender (Config.Debug.AssetReport) : petite étiquette « Blender N/M » en bas à gauche (hub et partie) ; un clic ou F4 ouvre le
 -- rapport complet (catégories et échecs : nom, ID, message). Le rapport vient du serveur (StringValue « AssetReport » dans ReplicatedStorage), imprimé aussi
 -- dans la console client par lignes « [Assets] ». Tout sous pcall, jamais d'erreur.
@@ -5212,7 +5224,7 @@ function AssetReportUi.start(Config, player, ReplicatedStorage, UserInputService
 end
 
 return AssetReportUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX97"><Properties><string name="Name">MiniMap</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MiniMap
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX98"><Properties><string name="Name">MiniMap</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/MiniMap
 -- Mini-carte : projection PURE (testée) d'un point du monde vers un disque centré sur le joueur, nord en haut (axe -Z vers le haut de l'écran).
 -- `radius` = studs représentés du centre au bord, `half` = demi-taille du disque en pixels. Les repères importants (base, zones, portails) sont ramenés
 -- au bord quand ils sont trop loin (`clamp`), les autres (gardiens) disparaissent hors du disque.
@@ -5275,7 +5287,7 @@ function MiniMap.featherMarks(spots, px, pz, range)
 end
 
 return MiniMap
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX98"><Properties><string name="Name">Battle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Battle   (LOT 12 partie A : moteur refait, D.1 à D.4 et D.6 de LOTS_9_PLUS.md)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX99"><Properties><string name="Name">Battle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Battle   (LOT 12 partie A : moteur refait, D.1 à D.4 et D.6 de LOTS_9_PLUS.md)
 -- Moteur de combat PUR (aucun service Roblox) de l'Arène des pets : équipes de 3 pets, tour par tour, résolution DÉTERMINISTE d'après une graine.
 -- Le serveur est la seule autorité : le client n'envoie qu'une intention (attaque, spécial, changer de pet) et rejoue les événements reçus.
 -- Types (9) : 3 triangles primaires (BEATS, x1,5 / x0,67) : Feu > Nature > Eau > Feu, Lumière > Ombre > Ciel > Lumière, Terre > Foudre > Glace > Terre ;
@@ -5803,7 +5815,7 @@ function Battle.view(st)
 end
 
 return Battle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX99"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX100"><Properties><string name="Name">Layout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Layout
 -- Disposition PURE de l'interface fixe (HUD) : tout est ancré aux bords (compteurs et objectif à gauche, bannière et notifications en haut
 -- à droite, conseils en bas à gauche, boutons de menu en colonne en bas à droite) ; la zone centrale reste libre pour voir le personnage.
 -- Testée avec une matrice d'appareils (tests/run.luau). Unités : pixels « de conception » ; le HUD est mis à l'échelle par `scale`.
@@ -5867,7 +5879,7 @@ function Layout.centerRect(vw, vh)
 end
 
 return Layout
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX100"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX101"><Properties><string name="Name">Party</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Party
 -- Logique PURE du hub : file d'attente des zones de lancement (1 à 5 joueurs), création de partie, registre des parties ouvertes
 -- (visibles des amis), rejoindre en cours de partie, repli de téléportation. Toutes les dépendances Roblox sont injectées pour pouvoir
 -- tester avec un faux TeleportService (tests/run.luau). Aucune erreur ne sort de ce module : les échecs sont des valeurs de retour.
@@ -6208,7 +6220,7 @@ function Party.new(Config, deps)
 end
 
 return Party
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX101"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX102"><Properties><string name="Name">Spawn</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Spawn
 -- Décisions PURES du filet anti-chute et de la garantie de personnage (testées hors Roblox). Le module SpawnGuard les applique.
 local Spawn = {}
 
@@ -6265,7 +6277,7 @@ function Spawn.newTally()
 end
 
 return Spawn
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX102"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX103"><Properties><string name="Name">SpawnGuard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SpawnGuard
 -- Garantit qu'un joueur a toujours un personnage dans la zone de jeu : (1) si aucun personnage n'apparaît dans les `noCharTimeout`
 -- secondes (script d'arrivée planté, CharacterAutoLoads coupé), il est chargé ici ; (2) un joueur sous le sol, hors zone, trop haut ou en
 -- chute libre est replacé au point de départ ; (3) chaque événement est tracé dans la console serveur avec le préfixe [Spawn].
@@ -6377,7 +6389,7 @@ function SpawnGuard.attach(opts)
 end
 
 return SpawnGuard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX103"><Properties><string name="Name">Belt</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Belt
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX104"><Properties><string name="Name">Belt</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Belt
 -- Tapis roulant central du marché : logique PURE (aucun service Roblox), testée. Le serveur appelle step() à 10 Hz et tryBuy() à chaque demande d'achat ;
 -- le client ne fait qu'afficher. La rareté d'un œuf est tirée à son apparition et reste VISIBLE avant l'achat. Un œuf n'a qu'un acheteur (réservation atomique).
 local Belt = {}
@@ -6584,7 +6596,7 @@ function Belt.tryBuy(Config, st, userId, eggId, coins, now)
 end
 
 return Belt
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX104"><Properties><string name="Name">Raven</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Raven
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX105"><Properties><string name="Name">Raven</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Raven
 -- Règles PURES du vol à distance « Corbeau chipeur » (aucun service Roblox), testées une par une. Le serveur fournit des « contextes » (tables simples) et applique
 -- la décision ; le client n'envoie qu'une intention. Jamais d'anonymat, jamais de protection payante : les protections sont gratuites.
 local Raven = {}
@@ -6803,7 +6815,7 @@ function Raven.birdPos(from, to, t, orbit)
 end
 
 return Raven
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX105"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX106"><Properties><string name="Name">Assets</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Assets (utilisé côté SERVEUR seulement : jeu et hub)
 -- Chargement SÛR des modèles Roblox qui servent d'apparence aux œufs. Rien ici ne touche au gameplay : en cas d'échec quel qu'il soit,
 -- cloneEgg retourne nil et l'appelant garde l'apparence par défaut. Les dépendances Roblox sont injectées (Assets.new(Config, deps)) pour
 -- tester tous les cas d'échec avec un chargeur factice (tests/run.luau).
@@ -7615,7 +7627,7 @@ function Assets.new(Config, deps)
 end
 
 return Assets
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX106"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX107"><Properties><string name="Name">Reveal</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Reveal
 -- Probabilité EXACTE d'un tirage et texte « 1 sur N » de la révélation d'œuf. Pur (Rules est injecté) et testé : la probabilité affichée
 -- est celle que Rules.rollPet applique réellement (même poids de rareté, d'espèce, de taille, de mutation ; tirage de pitié inclus).
 local Reveal = {}
@@ -7741,7 +7753,7 @@ function Reveal.slotIndex(col, pos)
 end
 
 return Reveal
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX107"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX108"><Properties><string name="Name">Guard</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Guard
 -- Perception et état des gardiens (chien de Gus, loup de Mara, ours de Zed) : champ de vision (cône + distance), ouïe (le bruit dépend de la
 -- vitesse du joueur), machine à états Patrouille / Alerte / Poursuite / Perte de cible / Retour, dégâts avec invulnérabilité courte et régénération.
 -- PUR (aucun service Roblox, positions = tables { x, z }) : testé hors de Roblox. Main n'applique que ces décisions au monde.
@@ -7945,7 +7957,7 @@ function Guard.regen(hp, sinceHit, dt, atBase, cfg)
 end
 
 return Guard
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX108"><Properties><string name="Name">Traps</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Traps
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX109"><Properties><string name="Name">Traps</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Traps
 -- Pièges des territoires (REFONTE lot 4) : fils à clochettes et flaques de boue de Mara, herse, dalles d'alarme et lanternes tournantes de Zed, plus la
 -- fraîcheur des œufs de Zed. PUR (aucun service Roblox, positions = nombres x, z) : testé hors de Roblox. Les positions sont DÉRIVÉES de Config.TERR
 -- (centre, rayon, entrée) : rien n'est écrit en dur. Le serveur (Main) applique les décisions, le Builder construit les Parts d'après `layout`.
@@ -8146,7 +8158,7 @@ function Traps.expired(egg, now)
 end
 
 return Traps
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX109"><Properties><string name="Name">Riddle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Riddle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX110"><Properties><string name="Name">Riddle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Riddle
 -- REFONTE lot 6 : énigme de la Mère Poule en 3 étapes GUIDÉES (plumes, runes, berceuse). Module PUR : aucune dépendance à Roblox, testé avec Lune/lupa.
 -- Le serveur tient l'état (profil `puzzle`), le client ne fait qu'afficher ; ce module décide de tout ce qui est « règle » :
 --   plumes du jour, berceuse du jour, transitions d'étape (refusées si invalides), indices, compte à rebours, répliques, guidage, effet collectif.
@@ -8579,7 +8591,7 @@ function Riddle.collectiveAdd(Config, c, day)
 end
 
 return Riddle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX110"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX111"><Properties><string name="Name">Castle</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Castle
 -- Mode « Château » : donjon de salles successives avec pièges à éviter (pics, lames tournantes, boulets, porte à timing) et coffre final.
 -- Logique PURE (aucun service Roblox) : géométrie des salles, états des pièges en fonction du temps, détection des touches, difficulté croissante,
 -- classement des temps et récompense. Coordonnées d'une salle : lx (travers, -20..20) et lz (profondeur depuis l'entrée, 0..roomLength).
@@ -8808,7 +8820,7 @@ function Castle.reward(timeSeconds, income, deaths)
 end
 
 return Castle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX111"><Properties><string name="Name">Upgrade</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Upgrade
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX112"><Properties><string name="Name">Upgrade</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Upgrade
 -- Montée de niveau de la maison (REFONTE lot 5, D.4) : LOGIQUE PURE (aucun service Roblox), testée hors de Roblox. Calcule, pour un temps t (secondes),
 -- l'état de chaque phase de l'animation ; le client (BaseUpgradeFx) l'applique aux objets. Ne lève jamais d'erreur (valeurs invalides = début).
 -- Phases (Config.UPGRADE_FX) : ① échafaudage 0,8 s ② poussière + onde 0,4 s ③ l'ancienne maison s'enfonce, la nouvelle monte (squash & stretch) 1,5 s
@@ -8872,7 +8884,7 @@ function Upgrade.new(Config, Easing)
 end
 
 return Upgrade
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX112"><Properties><string name="Name">Odds</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Odds   (lot 10, B.1 et B.2)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX113"><Properties><string name="Name">Odds</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Odds   (lot 10, B.1 et B.2)
 -- Compteur de rareté « 1 sur N » : module PUR (aucun service Roblox, aucun require). Les tables viennent de la table `Config` PASSÉE en paramètre :
 --   Config.SIZES[i].weight, Config.MUTS[i].weight, Config.PETS[i].tier (espèces par rareté), Config.ODDS.REF[r] (poids de référence, en %).
 -- Le compteur est la rareté de RÉFÉRENCE d'une combinaison (espèce, taille, mutation) : identique pour tous les joueurs, quel que soit l'œuf ou les
@@ -9190,7 +9202,7 @@ function Odds.validate(Config)
 end
 
 return Odds
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX113"><Properties><string name="Name">HatchPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/HatchPlan   (lot 10, B.3)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX114"><Properties><string name="Name">HatchPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/HatchPlan   (lot 10, B.3)
 -- PLAN PUR des 10 animations d'éclosion (une par rareté) : aucune dépendance, aucun service Roblox, déterministe (mêmes entrées -> même plan), jamais d'erreur.
 -- Remplace `CinematicKit.hatchPlan` pour le nouvel écran d'éclosion (HatchFx exécute le plan). Le plan est une liste de « prises » (beats) :
 --   { t = début (s), d = durée (s), kind = "...", n = nombre d'objets d'effet créés (0 si aucun), color = "main"|"second"|"white"|"black"|"gold"|"red"|"rainbow", ... }
@@ -9515,7 +9527,7 @@ function HatchPlan.check(plan)
 end
 
 return HatchPlan
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX114"><Properties><string name="Name">IntroPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/IntroPlan   (lot 10, B.4)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX115"><Properties><string name="Name">IntroPlan</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/IntroPlan   (lot 10, B.4)
 -- PLAN PUR de l'intro de combat (aucun service Roblox, aucun require, déterministe, jamais d'erreur) : deux bandeaux (joueur à gauche, adversaire à droite) avec
 -- nom, ligue, trophées, ratio « 124 V / 37 D (77 %) » et 3 vignettes de pets (type + compteur de rareté), « VS » qui frappe, flèche d'avantage de type, décompte 3-2-1.
 -- DÉCISION : durée totale 3,0 s au maximum (la spec disait 3,5 s ; plafond demandé 3 s) ; passable après 1,0 s ; sans décompte l'intro dure 2,2 s.
@@ -9673,7 +9685,7 @@ function IntroPlan.check(plan)
 end
 
 return IntroPlan
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX115"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/TypeFx   (lot 10, B.6)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX116"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/TypeFx   (lot 10, B.6)
 -- DONNÉES PURES des effets d'attaque par type (9 types de la matrice D.2) : couleur, attaque de base (0,5 s) et spécial (1,2 s). Aucune dépendance.
 -- Sera exposé plus tard comme `Config.TYPE_FX = TypeFx.DATA` ; le client StarterPlayerScripts/TypeFx.lua lit ces données (passées en paramètre, pas de require).
 -- Forme : DATA[type] = { hex = "FF6A1A", rgb = {r, g, b}, basic = Effet, special = Effet }
@@ -9795,7 +9807,7 @@ function TypeFx.efficacy(mult)
 end
 
 return TypeFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX116"><Properties><string name="Name">Calendar</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Calendar
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX117"><Properties><string name="Name">Calendar</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Calendar
 -- LOT 9b : règles PURES du calendrier des œufs sur 30 jours (aucun service Roblox, testées une par une). Le serveur fournit le jour UTC et décide ; le client ne reçoit
 -- que `Calendar.view` (affichage). Style : pas de `+=`, pas de `continue`, valeurs d'origine incertaine gardées par type avant toute comparaison numérique.
 -- État d'un profil (`cal`) : start = jour UTC du jour 1 du cycle (0 = pas démarré), cycle = numéro du cycle, days = 30 caractères « 0 » / « 1 » (jour réclamé),
@@ -10181,7 +10193,7 @@ function Calendar.view(Config, cal, today, eligible, reason)
 end
 
 return Calendar
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX117"><Properties><string name="Name">Npc</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Npc
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX118"><Properties><string name="Name">Npc</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Npc
 -- LOT 15 (F) : logique PURE des PNJ qui interpellent le joueur (aucun service Roblox). Le SERVEUR génère l'offre, la range dans un carnet (`book`), la lie au userId, la fait
 -- expirer après 60 s et ne l'accepte qu'une fois ; le client ne renvoie que l'identifiant et « accepter ». Jamais de Robux, jamais d'échange entre joueurs.
 -- Config attendu : TIERS, EGG_PRICE, PETS, SIZES, MUTS (existants) + NPCS, NPC_ENCOUNTER, NPC_RULES, DIALOGUES, TYPE_WEAK (bloc « LOT 15 » de Config.lua). Toute rareté passe par Config.TIERS (noms).
@@ -11054,7 +11066,7 @@ function Npc.violations(Config, o, inv, userId)
 end
 
 return Npc
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX118"><Properties><string name="Name">Rewards</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Rewards
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX119"><Properties><string name="Name">Rewards</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Rewards
 -- LOT 15 (G) : récompenses PURES (aucun service Roblox) : série de 7 jours (G.1), grâce et sauvetage (G.2), enveloppe du calendrier de 30 jours (Calendar.lua, lot 9b),
 -- quêtes bonus et hebdomadaires (G.4), sac d'œufs (10 places, jamais de perte), rotation hebdomadaire de 9 semaines, événements (week-end chanceux, heure dorée, événements limités),
 -- plumes d'événement avec plafonds par jour. Le SERVEUR fournit le jour UTC (os.time() // 86400) ; le client ne reçoit que des vues.
@@ -11858,7 +11870,7 @@ function Rewards.plumeBuyExclusive(Config, ev, active, store, open)
 end
 
 return Rewards
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX119"><Properties><string name="Name">KioskData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/KioskData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX120"><Properties><string name="Name">KioskData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/KioskData
 -- LOT 8B-kiosque : DONNEES PURES du kiosque central de la place (aucun service Roblox, aucune instance ; testé hors de Roblox). Source unique pour
 -- ServerScriptService/Kiosk (construction, prompts, validation serveur) et pour le client (libellés des 4 panneaux).
 -- Repères : Nord = -Z, Est = +X. Le « devant » du kiosque (comptoir, PanneauBoutique) regarde la halle (Config.Map2.hall).
@@ -12019,7 +12031,7 @@ function KioskData.overlap(Map2, cx, cz, r, margin)
 end
 
 return KioskData
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX120"><Properties><string name="Name">DecorData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/DecorData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX121"><Properties><string name="Name">DecorData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/DecorData
 -- Lot 8B-décor : DONNÉES PURES des modèles Blender de décor de carte (lots 15, 16 et 17 de Assets-crees). Aucune logique, aucun service Roblox :
 -- la logique est dans ServerScriptService/Decor (placement, budgets, repli procédural) et les tests dans tests/decor.luau.
 -- Une « famille » = un modèle Blender + sa règle de pose RELATIVE à la carte (zone), sa taille cible, son empreinte, son quota et son repli procédural.
@@ -12140,7 +12152,7 @@ F.log_hollow = { id = 92331613804784, lot = 17, cap = 40, zone = "region", regio
 -- scn_ile_sakura (lot 12, déjà dans Config.Assets.models.scenery mais jamais posé par Placement.VILLAGE) : island_sakura le remplace sur les lacs.
 
 return DecorData
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX121"><Properties><string name="Name">HouseDecorData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/HouseDecorData   (lot 8B-meubles, NON INTÉGRÉ : voir roblox/HOUSEDECOR_INTEGRATION_NOTES.md)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX122"><Properties><string name="Name">HouseDecorData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/HouseDecorData   (lot 8B-meubles, NON INTÉGRÉ : voir roblox/HOUSEDECOR_INTEGRATION_NOTES.md)
 -- Données PURES du décor intérieur des maisons (aucun service Roblox, aucun require). Les 24 modèles Blender des lots 18 (petits objets)
 -- et 19 (gros meubles) sont répartis sur les 8 niveaux de Config.BASE_LEVELS2 : le niveau N AJOUTE du décor, il n'en retire jamais.
 --
@@ -12243,7 +12255,7 @@ function HouseDecorData.budget(level)
 end
 
 return HouseDecorData
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX122"><Properties><string name="Name">ShopInfo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/ShopInfo (LOT 16, boutique pure : DONNÉES seulement, aucun service Roblox)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX123"><Properties><string name="Name">ShopInfo</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/ShopInfo (LOT 16, boutique pure : DONNÉES seulement, aucun service Roblox)
 -- Une fiche par achat, clé = clé de Config.PRODUCTS / Config.PASSES. Source : Assets/ACHATS_DEFINITIONS.md (titre <= 28 caractères, définition <= 90).
 -- Champs : cat (catégorie, voir Shop.CATEGORIES), icon (clé de Config.ICONS), title, def (définition courte), detail (durée, ce qui est aléatoire ou fixe, prérequis),
 --   notDo (« ce que l'achat ne fait PAS »), chance (texte « hasard / fixe »), limit ("achat unique" | "aucune limite" | "achat unique par saison"), also (autres catégories à renvoyer, « voir aussi »).
@@ -12488,7 +12500,7 @@ for n = 1, 6 do
 end
 
 return I
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX123"><Properties><string name="Name">ShopData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/ShopData (LOT 16, boutique pure : DONNÉES, aucun service Roblox)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX124"><Properties><string name="Name">ShopData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/ShopData (LOT 16, boutique pure : DONNÉES, aucun service Roblox)
 -- Ids, prix (R$), catégories et drapeaux de TOUS les achats de la boutique. L'intégrateur appelle `ShopData.merge(Config)` à la fin de Config.lua (ou copie ces champs
 -- dans Config.PRODUCTS / Config.PASSES) : les champs existants (name, emoji, desc, eggTier...) sont conservés, id / robux / cat / random / once / season / eggTier sont posés ici.
 -- Drapeaux : random = achat masqué et refusé si PolicyService restreint ; once = achat unique à vie ; season = achat unique PAR saison (season.premium = n) ;
@@ -12586,7 +12598,7 @@ function D.merge(config, info)
 end
 
 return D
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX124"><Properties><string name="Name">Shop</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Shop (LOT 16, boutique PURE : aucune dépendance Roblox, Config / ShopInfo injectés par paramètre)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX125"><Properties><string name="Name">Shop</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Shop (LOT 16, boutique PURE : aucune dépendance Roblox, Config / ShopInfo injectés par paramètre)
 -- Catégories, tri, état « Possédé », règle de mise à niveau (palier inférieur déjà possédé -> seul le complément est visible), prix effectif, visibilité
 -- (id renseigné, PolicyService, espèces publiées), contrôle de place AVANT paiement, débordement, texte des probabilités et reçus (un crédit par reçu).
 -- Décision utilisateur : PLUS DE PLAFOND D'ACHAT. Seuls les achats uniques (`once`, passes, poses) et le passe de saison (une fois par saison) sont limités.
@@ -13187,7 +13199,7 @@ function Shop.grantPass(profil, key)
 end
 
 return Shop
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX125"><Properties><string name="Name">Season</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Season
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX126"><Properties><string name="Name">Season</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Season
 -- LOT 16 (G.5 + addendum B) : logique PURE de la Passe de combat (aucun service Roblox, aucun os.time : le SERVEUR passe `nowUtc` en secondes).
 -- Usage : local S = Season.new(Config, SeasonData). Config fournit TIERS (rareté par NOM) et PETS (espèce Exclusif de la saison).
 -- Champs de profil (profil.season) : { n, xp, day, dayXp, claimedFree, claimedPrem, premium, plus, prev }
@@ -13679,7 +13691,7 @@ function Season.new(Config, SD)
 end
 
 return Season
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX126"><Properties><string name="Name">SeasonData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SeasonData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX127"><Properties><string name="Name">SeasonData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SeasonData
 -- LOT 16 (G.5 + addendum B) : DONNÉES de la Passe de combat (aucune logique, aucun service Roblox). Les raretés sont des NOMS résolus par Config.TIERS (jamais de rang en dur).
 -- Modifiable sans toucher Season.lua : durée, date de début, XP par source, plafond/jour, XP par palier, récompenses des deux pistes, thèmes et espèces de saison.
 local D = {}
@@ -13820,7 +13832,7 @@ D.PREMIUM_TRACK = {
 }
 
 return D
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX127"><Properties><string name="Name">Offers</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Offers
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX128"><Properties><string name="Name">Offers</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Offers
 -- LOT 16 : OFFRES CONTEXTUELLES à l'écran, logique PURE (aucun service Roblox, aucune instance, aucun hasard). Une offre à la fois, 3 par session, 300 s d'écart,
 -- jamais pendant une action, jamais juste après un achat, jamais ce que le joueur possède ou ce qui est indisponible. Le client affiche la carte (bouton Fermer toujours
 -- visible) et ouvre la MEME fiche que le kiosque ; le serveur reste seul juge de l'achat. Style : pas de `+=`, pas de `continue`, gardes de type partout.
@@ -14053,7 +14065,7 @@ function Offers.expired(state, now, ctx)
 end
 
 return Offers
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX128"><Properties><string name="Name">OffersData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/OffersData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX129"><Properties><string name="Name">OffersData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/OffersData
 -- LOT 16 : DONNEES PURES des offres contextuelles à l'écran (une carte à la fois, fermable d'un geste). Aucune instance, aucun service Roblox.
 -- Règles (décisions utilisateur, ACHATS_DEFINITIONS « Règles communes ») : jamais de fausse urgence, aucun minuteur affiché, aucune promesse de gain,
 -- 3 offres par session, 300 s entre deux, aucune offre juste après un achat, jamais ce que le joueur possède, jamais un achat sans id ou masqué (PolicyService),
@@ -14092,7 +14104,7 @@ OffersData.EGG_TEXT = "Un œuf de rareté fixe %s, posé dans ta base. Espèce e
 OffersData.FORBIDDEN_WORDS = { "dernière chance", "dépêche", "vite", "limité", "limitée", "stock", "expire", "plus que", "maintenant ou jamais", "offre spéciale", "promo", "-50", "gratuit à vie", "tu vas obtenir", "garanti !" }
 
 return OffersData
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX129"><Properties><string name="Name">SellersData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SellersData
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX130"><Properties><string name="Name">SellersData</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/SellersData
 -- LOT 16 : DONNEES PURES des 8 vendeurs PNJ du hub (un par catégorie de la boutique du kiosque). Aucun service Roblox, aucune instance : testé hors de Roblox
 -- (tests/sellers.luau). Source unique pour ServerScriptService/Sellers (construction, prompts, validation serveur) et pour le client (onglet à ouvrir).
 -- Repères : Nord = -Z, Est = +X. Le « devant » d'un vendeur (étiquette, comptoir) regarde le kiosque central.
@@ -14377,7 +14389,7 @@ function SellersData.footprints(layout)
 end
 
 return SellersData
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX130"><Properties><string name="Name">Bestiary</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Bestiary (LOT 11, C.1 et C.2 de obsidian-studio/Jeux/LOTS_9_PLUS.md)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX131"><Properties><string name="Name">Bestiary</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Bestiary (LOT 11, C.1 et C.2 de obsidian-studio/Jeux/LOTS_9_PLUS.md)
 -- Les 78 espèces de Chipe-Œufs. MODULE DE DONNÉES PUR : aucun service Roblox, seulement `Color3.fromRGB` (global Roblox ; simulé par les tests).
 -- Config.PETS = Bestiary.PETS (voir README « Brancher »). L'INDICE D'ESPÈCE EST STABLE POUR TOUJOURS : il est stocké dans les profils (dex, pets, défenses PvP).
 -- Les indices 1 à 18 sont les 18 espèces historiques, identiques octet pour octet à l'ancien Config.PETS (nom, revenu, couleur, repli) : ne jamais les modifier.
@@ -15521,7 +15533,7 @@ function Bestiary.fallback(idx)
 end
 
 return Bestiary
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX131"><Properties><string name="Name">PetXp</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/PetXp   (LOT 12 partie B, D.6)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX132"><Properties><string name="Name">PetXp</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/PetXp   (LOT 12 partie B, D.6)
 -- Expérience et niveaux des pets : module PUR (aucun service Roblox, aucun require). L'XP est stockée sur l'emplacement du pet : `slot.x` = XP CUMULÉE (entier, champ déjà
 -- créé à 0 par la migration v11 et assaini par Data.merge). Niveau 1 à 20 ; chaque niveau donne +1,5 % de pv et d'attaque (Battle.unit : stat x PetXp.statMul(niveau)).
 -- RÈGLE FERME : l'XP de pet ne s'obtient QU'EN JOUANT (combat PvE/PvP/PNJ, carte Expérience D.5). Aucun produit, aucun pass, aucun reçu ne donne d'XP de pet
@@ -15716,7 +15728,7 @@ function PetXp.trainerAdd(trainer, amount)
 end
 
 return PetXp
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX132"><Properties><string name="Name">BattleRewards</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/BattleRewards   (LOT 12 partie B, D.5)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX133"><Properties><string name="Name">BattleRewards</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/BattleRewards   (LOT 12 partie B, D.5)
 -- Récompense AU CHOIX après une victoire PvE (tour des Dresseurs, combats de PNJ) : module PUR (aucun service Roblox). Ne remplace pas Rewards.lua (série / calendrier du lot 15).
 -- Le SERVEUR tire 3 cartes de 3 catégories DIFFÉRENTES (poids : Pièces 30, Expérience 25, Œuf 15, Vitesse 15, Effet 15 ; aux boss, une des 3 est toujours l'Œuf), les enregistre dans
 -- `data.battle.pendingPick = { id, cards, expires, floor, mode }` puis les envoie au client ; le joueur en choisit une en 15 s, sinon la première. Se déconnecter ou relancer ne
@@ -16082,7 +16094,7 @@ function BattleRewards.view(Config, pick, now)
 end
 
 return BattleRewards
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX133"><Properties><string name="Name">Duel</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Duel   (lot 13, E.1 E.2 E.4, B.4)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX134"><Properties><string name="Name">Duel</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Duel   (lot 13, E.1 E.2 E.4, B.4)
 -- Règles PURES du duel local et des ligues (aucun service Roblox, aucun require, horloge injectée, jamais d'erreur sur entrée invalide). Pas de += ni de continue (lanceur lupa).
 -- Le serveur (Main.server.lua) fait les effets (placement sur le sable, Battle.turn, notifications) ; ce module décide.
 --   Duel.canChallenge(ctx, cfg)        -> ok, raison, côté ("a" défieur | "b" défié)   [6 refus de E.2 + soi-même + occupé]
@@ -16554,7 +16566,7 @@ function Duel.outcomes(m)
 end
 
 return Duel
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX134"><Properties><string name="Name">Ranked</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Ranked
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX135"><Properties><string name="Name">Ranked</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Ranked
 -- LOT 14 : classé EN DIRECT (file MemoryStore, serveur réservé « ranked »). Logique PURE : aucune API Roblox, aucun yield, aucune erreur levée
 -- sur une entrée invalide (valeurs de retour). Testé par tests/lot14.luau (Lune ou lupa). Le transport (MemoryStore, TeleportService) est dans
 -- ServerScriptService/PvpLive.lua, qui n'appelle ces règles qu'à travers des fonctions de transformation (UpdateAsync) et des décisions.
@@ -17186,7 +17198,7 @@ function Ranked.quotaLimit(players)
 end
 
 return Ranked
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX135"><Properties><string name="Name">BattleLayout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/BattleLayout   (refonte de la présentation du combat, vue face à face)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX136"><Properties><string name="Name">BattleLayout</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/BattleLayout   (refonte de la présentation du combat, vue face à face)
 -- Module PUR (aucune instance Roblox, aucun require) : calcule la disposition de l'écran de combat à partir de la taille de la fenêtre et de la zone sûre :
 --   * rectangles en pixels (et en échelle) de la carte de l'adversaire (haut à droite), de la carte du joueur (bas à gauche), du bandeau de journal (bas),
 --     des 4 boutons d'action (bas à droite : Attaque, Spécial, Changer, Fuir), tous >= 44 px, jamais en dehors de la zone sûre, jamais superposés ;
@@ -17818,7 +17830,7 @@ function BattleLayout.decorSpots(n)
 end
 
 return BattleLayout
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX136"><Properties><string name="Name">Graphics</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Graphics
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX137"><Properties><string name="Name">Graphics</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Graphics
 -- Lot GRAPHISMES (monde) : logique PURE, déterministe, testée hors de Roblox. Aucun Instance, aucun tirage libre (Park-Miller 48271).
 --   Graphics.checkLighting(L)                 : cohérence des palettes de lumière entre zones (teinte, saturation, valeur, heure, densité, brume).
 --   Graphics.assignStyles(items, poolOf, d)   : style de chaque arbre, jamais deux styles identiques à moins de `d` studs si le choix le permet.
@@ -18335,7 +18347,7 @@ function Graphics.auditGround(Config, P, plan)
 end
 
 return Graphics
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX137"><Properties><string name="Name">Onboarding</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Onboarding
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX138"><Properties><string name="Name">Onboarding</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Onboarding
 -- LOT 17 (idée 1 « Premières 5 minutes guidées ») : logique PURE de l'onboarding (aucun service Roblox, aucun os.time : le SERVEUR passe `now` en secondes).
 -- Usage : local O = Onboarding.new(Config.ONBOARDING)   (cfg facultative : les valeurs absentes ou invalides prennent Onboarding.DEFAULTS)
 -- Séquence FIXE de 5 étapes, une seule action attendue par étape :
@@ -18577,7 +18589,7 @@ function Onboarding.new(cfgIn)
 end
 
 return Onboarding
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX138"><Properties><string name="Name">Showcase</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Showcase (idée 3 « Vitrine pet du jour »). Logique PURE, sans service Roblox : le DataStore est injecté.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX139"><Properties><string name="Name">Showcase</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Showcase (idée 3 « Vitrine pet du jour »). Logique PURE, sans service Roblox : le DataStore est injecté.
 -- Chaque jour UTC, une espèce de rareté >= minTier (publiée dans Config.PETS) est mise en vitrine, de façon déterministe (même jour = même espèce partout).
 -- Le premier joueur qui fait ÉCLORE cette espèce ce jour-là la « possède » : enregistrement DEDIE par jour (UpdateAsync, premier écrit gagne), puis +5 % de
 -- revenus pendant 24 h. Garde-fous : un seul bonus actif (jamais cumulé ni prolongé), une vitrine par jour, une par semaine et par joueur, bonus perdu si le
@@ -18839,8 +18851,368 @@ function Showcase.new(Config)
 end
 
 return Showcase
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX140"><Properties><string name="Name">Evolution</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Evolution
+-- IDÉE 2 (coffre IDEES_CHIPE_OEUFS) : évolution d'un pet en « forme 2 ». Logique PURE : aucune API Roblox, aucun yield, aucune erreur levée sur une
+-- entrée invalide (valeurs de retour). Testé par tests/evolution.luau (Lune ou lupa). Le serveur (Main) n'appelle que plan / stage / stillValid / apply.
+--
+-- Règles (Config.EVOLUTION, valeurs uniques) :
+--   * coût : `sacrifices` (3) DOUBLONS de la même rareté que le pet visé + `costSeconds` (300 s = 5 min) du revenu ACTUEL du joueur, en pièces.
+--     Aucune forme payante : rien ici ne lit un produit, un pass ou des Robux ; le coût en pièces est calculé par le serveur (le client n'envoie que
+--     l'emplacement et le prix maximal qu'il accepte, `maxCost`, pour ne jamais payer plus que ce qu'il a vu) ;
+--   * doublon : pet dont l'espèce garde au moins UN exemplaire dans la base après l'évolution (le pet visé compte). On ne sacrifie jamais le dernier
+--     exemplaire d'une espèce. Choix AUTOMATIQUE par le serveur : les doublons qui rapportent le moins d'abord (puis l'indice le plus bas) ;
+--   * forme 2 : même espèce (sl.p inchangé), `sl.f = 2`, revenu x incomeMul (1,15), pv et attaque x powerMul (1,10) en combat (Battle.unit, échelle),
+--     silhouette x visualScale et halo (Builder) ;
+--   * interdits : pet visé ou sacrifié qui suit le joueur (equip), qui est dans l'équipe de combat (battle.team) ou dont la copie (p, s, m) est dans la
+--     défense PvP enregistrée ; taille Géant / Colossal ; mutation Arc-en-ciel et au-delà (Alien, Céleste) ; pet déjà en forme 2 ; combat en cours ;
+--   * force : la forme 2 d'une rareté r reste STRICTEMENT sous la forme 1 de la rareté r + 1 (mêmes taille, mutation, niveau) : vérifié par les tests
+--     sur les 10 raretés (Battle.STATS) et sur chaque espèce du bestiaire ;
+--   * profil : `evo = { ["indice d'espèce"] = nombre d'évolutions }` (compteur par espèce), assaini, jamais remis à zéro (migration v13 -> v14 idempotente).
+-- Atomicité (même schéma que le calendrier et les cartes : sauvegarde PUIS octroi) : `stage` construit une COPIE du profil après l'évolution, le
+-- serveur la sauvegarde ; seulement si la sauvegarde réussit, `stillValid` puis `apply` modifient le profil vivant. Échec = profil vivant intact.
+local Evolution = {}
+
+Evolution.FORM2 = 2
+
+local function num(v, default)
+	if type(v) ~= "number" or v ~= v or v == math.huge or v == -math.huge then
+		return default
+	end
+	return v
+end
+
+local function isInt(v)
+	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge and v % 1 == 0
+end
+
+local function cfgOf(Config)
+	return type(Config) == "table" and type(Config.EVOLUTION) == "table" and Config.EVOLUTION or nil
+end
+
+-- Forme d'un emplacement : 2 si `f == 2`, sinon 1 (pets plus anciens, œufs, vides).
+function Evolution.form(sl)
+	if type(sl) == "table" and sl.k == "p" and sl.f == Evolution.FORM2 then
+		return 2
+	end
+	return 1
+end
+
+-- Assainit le champ facultatif `f` d'un pet (merge) : 2 ou absent. Idempotent.
+function Evolution.sanitizeForm(sl)
+	if type(sl) == "table" then
+		if sl.k == "p" and sl.f == Evolution.FORM2 then
+			sl.f = Evolution.FORM2
+		else
+			sl.f = nil
+		end
+	end
+	return sl
+end
+
+-- Multiplicateur de revenu d'une forme (Config.petIncome) : 1 ou cfg.incomeMul.
+function Evolution.incomeMulOf(Config, f)
+	local cfg = cfgOf(Config)
+	if f == Evolution.FORM2 and cfg then
+		return num(cfg.incomeMul, 1)
+	end
+	return 1
+end
+
+-- Échelle de combat d'un pet (3e argument de Battle.unit) : nil pour la forme 1 (aucun changement), cfg.powerMul pour la forme 2.
+function Evolution.powerScale(Config, sl)
+	local cfg = cfgOf(Config)
+	if cfg and Evolution.form(sl) == 2 then
+		return num(cfg.powerMul, 1)
+	end
+	return nil
+end
+
+-- Échelle visuelle (Builder) : 1 ou cfg.visualScale.
+function Evolution.visualScale(Config, f)
+	local cfg = cfgOf(Config)
+	if cfg and f == Evolution.FORM2 then
+		return num(cfg.visualScale, 1)
+	end
+	return 1
+end
+
+-- Compteur d'évolutions par espèce : clés = tostring(indice d'espèce existante), valeurs entières 1..1e6. Absent ou corrompu = {}.
+-- Idempotent : relire un compteur déjà assaini le rend identique.
+function Evolution.sanitizeCounts(Config, v)
+	local out = {}
+	if type(v) ~= "table" or type(Config) ~= "table" or type(Config.PETS) ~= "table" then
+		return out
+	end
+	for k, n in pairs(v) do
+		local idx = tonumber(k)
+		if idx and isInt(idx) and Config.PETS[idx] ~= nil and type(n) == "number" and n == n and n >= 1 then
+			out[tostring(idx)] = math.min(1e6, math.floor(n))
+		end
+	end
+	return out
+end
+
+-- Migration v13 -> v14 : pose `evo = {}` si absent ou d'un autre type ; un compteur existant n'est JAMAIS remis à zéro (assaini ensuite par merge).
+function Evolution.migrate(saved)
+	if type(saved) == "table" and type(saved.evo) ~= "table" then
+		saved.evo = {}
+	end
+	return saved
+end
+
+local function blocked(cfg, sl)
+	return (cfg.blockedSizes and cfg.blockedSizes[sl.s]) or (cfg.blockedMuts and cfg.blockedMuts[sl.m])
+end
+
+local function inList(list, v)
+	if type(list) == "table" then
+		for _, x in ipairs(list) do
+			if x == v then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+-- Raison pour laquelle l'emplacement `i` est protégé (suiveur, équipe, défense PvP), ou nil.
+function Evolution.protected(d, i)
+	if type(d) ~= "table" or type(d.slots) ~= "table" then
+		return "slot"
+	end
+	if inList(d.equip, i) then
+		return "follower"
+	end
+	local b = type(d.battle) == "table" and d.battle or {}
+	if inList(b.team, i) then
+		return "team"
+	end
+	local sl = d.slots[i]
+	local pv = type(b.pvp) == "table" and b.pvp or {}
+	if type(sl) == "table" and type(pv.defense) == "table" then
+		for _, e in ipairs(pv.defense) do
+			if type(e) == "table" and e.p == sl.p and e.s == sl.s and e.m == sl.m and e.f ~= Evolution.FORM2 then
+				return "defense"
+			end
+		end
+	end
+	return nil
+end
+
+-- Le pet de l'emplacement `i` peut-il être visé ? Retourne (true) ou (false, code). Ne regarde ni le coût ni les doublons.
+function Evolution.targetCheck(Config, d, i, capacity)
+	local cfg = cfgOf(Config)
+	if not cfg or cfg.enabled ~= true then
+		return false, "disabled"
+	end
+	if type(d) ~= "table" or type(d.slots) ~= "table" or not isInt(i) or i < 1 or i > (capacity or 0) then
+		return false, "slot"
+	end
+	local sl = d.slots[i]
+	if type(sl) ~= "table" or sl.k ~= "p" or type(Config.PETS) ~= "table" or Config.PETS[sl.p] == nil then
+		return false, "slot"
+	end
+	if Evolution.form(sl) >= (cfg.maxForm or 2) then
+		return false, "already"
+	end
+	if blocked(cfg, sl) then
+		return false, "special"
+	end
+	local why = Evolution.protected(d, i)
+	if why then
+		return false, why
+	end
+	return true
+end
+
+-- Doublons sacrifiables pour le pet visé `i` : `cfg.sacrifices` emplacements, ou (nil, nombre trouvé). Ordre : revenu croissant, puis indice.
+function Evolution.pickSacrifices(Config, d, i, capacity)
+	local cfg = cfgOf(Config)
+	local target = d.slots[i]
+	local tier = Config.PETS[target.p].tier
+	local counts = {}
+	for j = 1, capacity do
+		local sl = d.slots[j]
+		if type(sl) == "table" and sl.k == "p" and Config.PETS[sl.p] then
+			counts[sl.p] = (counts[sl.p] or 0) + 1
+		end
+	end
+	local cands = {}
+	for j = 1, capacity do
+		local sl = d.slots[j]
+		if
+			j ~= i
+			and type(sl) == "table"
+			and sl.k == "p"
+			and Config.PETS[sl.p]
+			and Config.PETS[sl.p].tier == tier
+			and Evolution.form(sl) == 1
+			and not blocked(cfg, sl)
+			and Evolution.protected(d, j) == nil
+		then
+			cands[#cands + 1] = { j = j, p = sl.p, inc = Config.petIncome(sl.p, sl.s, sl.m) }
+		end
+	end
+	table.sort(cands, function(a, b)
+		if a.inc ~= b.inc then
+			return a.inc < b.inc
+		end
+		return a.j < b.j
+	end)
+	local need = cfg.sacrifices or 3
+	local out = {}
+	for _, c in ipairs(cands) do
+		if #out < need and counts[c.p] > 1 then -- jamais le dernier exemplaire d'une espèce (le pet visé compte comme exemplaire restant)
+			out[#out + 1] = c.j
+			counts[c.p] = counts[c.p] - 1
+		end
+	end
+	if #out < need then
+		return nil, #out
+	end
+	table.sort(out)
+	return out
+end
+
+-- Coût en pièces : cfg.costSeconds x revenu actuel par seconde (arrondi au supérieur, >= 0).
+function Evolution.cost(Config, incomePerSec)
+	local cfg = cfgOf(Config)
+	local inc = math.max(0, num(incomePerSec, 0))
+	return math.max(0, math.ceil((cfg and cfg.costSeconds or 300) * inc - 1e-9))
+end
+
+-- Plan d'évolution complet. ctx (calculé par le SERVEUR) = { capacity, income, coins?, busy?, maxCost? }.
+-- Retourne (plan) ou (nil, code, détail). plan = { i, p, tier, sac = { j, ... }, pets = { [j] = table du pet }, target = table du pet, cost }.
+-- `pets` et `target` gardent les RÉFÉRENCES des tables du profil : stillValid vérifie que ce sont toujours les mêmes pets.
+function Evolution.plan(Config, d, i, ctx)
+	ctx = type(ctx) == "table" and ctx or {}
+	if ctx.busy then
+		return nil, "busy"
+	end
+	local capacity = isInt(ctx.capacity) and ctx.capacity or 0
+	local ok, code = Evolution.targetCheck(Config, d, i, capacity)
+	if not ok then
+		return nil, code
+	end
+	local sac, found = Evolution.pickSacrifices(Config, d, i, capacity)
+	if not sac then
+		return nil, "dupes", found
+	end
+	local cost = Evolution.cost(Config, ctx.income)
+	if ctx.maxCost ~= nil and (type(ctx.maxCost) ~= "number" or ctx.maxCost ~= ctx.maxCost or cost > ctx.maxCost) then
+		return nil, "price", cost
+	end
+	if num(d.coins, 0) < cost then
+		return nil, "coins", cost
+	end
+	local target = d.slots[i]
+	local pets = {}
+	for _, j in ipairs(sac) do
+		pets[j] = d.slots[j]
+	end
+	return { i = i, p = target.p, tier = Config.PETS[target.p].tier, sac = sac, pets = pets, target = target, cost = cost }
+end
+
+-- Aperçu pour le client : { ok, code, sac, cost, need, found } (aucune référence de table du profil).
+function Evolution.view(Config, d, i, ctx)
+	local plan, code, extra = Evolution.plan(Config, d, i, ctx)
+	local cfg = cfgOf(Config)
+	if plan then
+		return { ok = true, i = i, sac = plan.sac, cost = plan.cost, need = cfg.sacrifices }
+	end
+	return { ok = false, i = i, code = code, cost = (code == "coins" or code == "price") and extra or nil, found = code == "dupes" and extra or nil, need = cfg and cfg.sacrifices or nil }
+end
+
+local function bump(evo, p)
+	local k = tostring(p)
+	evo[k] = math.min(1e6, (evo[k] or 0) + 1)
+end
+
+-- Copie du profil APRÈS l'évolution, à sauvegarder (le profil vivant n'est pas touché) : copie superficielle, avec de nouvelles tables pour
+-- slots, evo et le pet visé ; les autres champs sont partagés (lecture seule pendant la sauvegarde).
+function Evolution.stage(d, plan)
+	local post = table.clone(d)
+	local slots = table.clone(d.slots)
+	local pet = table.clone(plan.target)
+	pet.f = Evolution.FORM2
+	slots[plan.i] = pet
+	for _, j in ipairs(plan.sac) do
+		slots[j] = false
+	end
+	local evo = table.clone(type(d.evo) == "table" and d.evo or {})
+	bump(evo, plan.p)
+	post.slots, post.evo = slots, evo
+	post.coins = num(d.coins, 0) - plan.cost
+	return post
+end
+
+-- Le plan s'applique-t-il encore au profil vivant (mêmes tables de pets aux mêmes emplacements, forme 1, pièces suffisantes) ?
+function Evolution.stillValid(d, plan)
+	if type(d) ~= "table" or type(d.slots) ~= "table" or type(plan) ~= "table" then
+		return false
+	end
+	if d.slots[plan.i] ~= plan.target or Evolution.form(plan.target) ~= 1 then
+		return false
+	end
+	for _, j in ipairs(plan.sac) do
+		if d.slots[j] ~= plan.pets[j] then
+			return false
+		end
+	end
+	return num(d.coins, 0) >= plan.cost
+end
+
+-- Applique le plan au profil vivant (après une sauvegarde réussie de `stage`) : pièces débitées (delta : le revenu gagné pendant la sauvegarde reste),
+-- doublons retirés, forme 2, compteur de l'espèce +1. Retourne true, ou false sans rien toucher si le plan ne s'applique plus.
+function Evolution.apply(d, plan)
+	if not Evolution.stillValid(d, plan) then
+		return false
+	end
+	d.coins = num(d.coins, 0) - plan.cost
+	for _, j in ipairs(plan.sac) do
+		d.slots[j] = false
+	end
+	plan.target.f = Evolution.FORM2
+	if type(d.evo) ~= "table" then
+		d.evo = {}
+	end
+	bump(d.evo, plan.p)
+	return true
+end
+
+-- Retire les indices sacrifiés d'une liste d'emplacements (equip) : sécurité, ils ne peuvent pas y être (protégés).
+function Evolution.dropIndices(list, sac)
+	if type(list) ~= "table" then
+		return list
+	end
+	for n = #list, 1, -1 do
+		if inList(sac, list[n]) then
+			table.remove(list, n)
+		end
+	end
+	return list
+end
+
+-- Messages des refus (client) : codes de plan / targetCheck.
+Evolution.REFUSE = {
+	disabled = "L'évolution n'est pas encore disponible.",
+	slot = "Choisis un pet de ta base.",
+	already = "Ce pet est déjà en forme 2.",
+	special = "Les pets Géants, Colossaux, Arc-en-ciel, Alien et Célestes n'évoluent pas.",
+	follower = "Ce pet te suit : retire-le de tes suiveurs avant de le faire évoluer.",
+	team = "Ce pet est dans ton équipe de combat : retire-le de l'équipe avant de le faire évoluer.",
+	defense = "Ce pet est dans ta défense PvP : enregistre une autre défense avant de le faire évoluer.",
+	busy = "Termine d'abord ton combat.",
+	dupes = "Il faut 3 doublons de la même rareté (jamais le dernier exemplaire d'une espèce).",
+	coins = "Pas assez de pièces (5 min de revenus).",
+	price = "Le prix a changé : regarde le nouveau prix et réessaie.",
+	save = "Sauvegarde impossible pour l'instant : réessaie dans un moment (rien n'a été perdu).",
+	changed = "Ta base a changé pendant l'évolution : rien n'a été fait.",
+}
+
+return Evolution
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX143"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX141"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
+<Item class="ServerScriptService" referent="RBX145"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX143"><Properties><string name="Name">Hub</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Hub (lieu HUB uniquement)
 -- Zones de lancement (1 à 5 joueurs), file d'attente visible, téléportation vers le lieu de jeu, liste des parties d'amis (registre
 -- MemoryStore) et bouton Rejoindre. Toute la logique de décision est dans Party (testée) ; ici : Roblox (joueurs, zones, services).
 local Players = game:GetService("Players")
@@ -19195,7 +19567,7 @@ Players.PlayerRemoving:Connect(function(player)
 	lastReq[player] = nil
 	friendCache[player.UserId] = nil
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX142"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX144"><Properties><string name="Name">HubWorld</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HubWorld (lieu HUB uniquement)
 -- Construit le hub : place pavée avec fontaine, 5 portails de lancement (solo, 2, 3, 4, 5 joueurs) en arc, panneau des parties d'amis,
 -- décor et ambiance. Tout en Parts, matériaux et lumières de base Roblox. Léger (une centaine de Parts) : pensé pour les téléphones.
 local CollectionService = game:GetService("CollectionService")
@@ -19591,7 +19963,7 @@ end
 
 return HubWorld
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX146"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX145"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX144"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
+<Item class="StarterPlayer" referent="RBX148"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX147"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX146"><Properties><string name="Name">HubClient</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/HubClient (lieu HUB uniquement)
 -- Interface du hub : bouton « Amis » en haut à droite qui ouvre la liste des parties ouvertes de tes amis (bouton Rejoindre), messages en
 -- haut à droite. Tout est ancré aux bords, la zone centrale reste libre (voir Layout.lua).
 local Players = game:GetService("Players")

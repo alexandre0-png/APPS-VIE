@@ -373,7 +373,7 @@ return function(env)
 	suite("Vitrine : branchement dans Data.lua et Main.server.lua")
 	local dataSrc = fs.readFile("roblox/src/ServerScriptService/Data.lua")
 	local mainSrc = fs.readFile("roblox/src/ServerScriptService/Main.server.lua")
-	check("Data : version du schéma inchangée (13)", has(dataSrc, "local VERSION = 13\n"))
+	check("Data : la vitrine n'ajoute aucune version (13 à l'idée 3 ; 14 depuis l'idée 2, évolution)", has(dataSrc, "local VERSION = 14\n"))
 	check(
 		"Data : require Showcase, valeur par défaut et assainissement du champ",
 		has(dataSrc, "ShowcaseMod = require(") and has(dataSrc, "showcase = ShowcaseMod.sanitize(nil, os.time())") and has(dataSrc, "d.showcase = ShowcaseMod.sanitize(saved.showcase, os.time())")

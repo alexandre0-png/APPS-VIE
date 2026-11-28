@@ -323,6 +323,19 @@ local function toast(msg)
 	TweenService:Create(sc, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 	Debris:AddItem(t, 3.2)
 end
+-- Lot 17 (idée 2, évolution des pets, DÉSACTIVÉE : Config.EVOLUTION.enabled = false) : réception seule. Le serveur répond sur « Evo » à evoPreview / evolve ;
+-- l'aperçu est gardé (L15.evoView) pour la future fiche « ✨ Évoluer » (non faite) ; aucun calcul ici, le serveur décide doublons, coût et interdits.
+L15.REvo = Remotes:WaitForChild("Evo")
+L15.REvo.OnClientEvent:Connect(function(m)
+	if type(m) ~= "table" then
+		return
+	end
+	if m.k == "preview" and type(m.view) == "table" then
+		L15.evoView = m.view
+	elseif m.k == "done" then
+		L15.evoView = nil
+	end
+end)
 
 ---------------------------------------------------------------- Pop d'éclosion
 local pop = make("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.3, 0), Size = UDim2.fromOffset(340, 240), BackgroundTransparency = 1, Visible = false, ZIndex = 10 }, gui)

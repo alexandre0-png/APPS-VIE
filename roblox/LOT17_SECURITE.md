@@ -30,3 +30,19 @@ Revue par lecture du code intégré et par les tests lupa (runtime factice, vrai
 | Télémétrie | Aucun événement ajouté (la liste des 16 métriques par joueur est fermée et testée) ; au plus 1 notification par victoire. |
 
 **Bilan idée 3 : 0 défaut critique, élevé ou moyen ; 1 point faible à décider (œufs payés).**
+
+## Idée 2 : évolution des pets (`Evolution.lua`, profil v14 `evo` + `slot.f`, actions `evoPreview` / `evolve`, remote `Evo`) — LIVRÉE DÉSACTIVÉE
+
+| Point | Constat |
+|---|---|
+| Interrupteur | `Config.EVOLUTION.enabled = false` : `evoPreview` ne répond pas, `evolve` est refusé par `Evolution.plan` (testé de bout en bout). Une forme 2 existante garderait ses bonus. |
+| Remote | Le client n'envoie que l'indice d'emplacement et le prix maximal qu'il accepte (`maxCost`, nombre ou absent ; NaN / texte refusés). Doublons sacrifiés, coût (300 s du revenu actuel), interdits : calculés par le serveur. `Evo` est serveur -> client seulement (aucun `OnServerEvent`). |
+| Interdits | Suiveur, équipe de combat, copie de la défense PvP, pet déjà en forme 2, Géant / Colossal / Arc-en-ciel / Alien / Céleste ; refus pendant combat, Château, recherche PvP, départ, autre évolution. Le dernier exemplaire d'une espèce n'est jamais sacrifié. |
+| Atomicité | Copie « après » sauvegardée (`Data.save`) PUIS octroi (`stillValid` + `apply`, pièces débitées par différence). DataStore en panne : rien ne change (testé). `s.evoBusy` gèle toutes les autres actions du joueur pendant la sauvegarde (sauf `sync`), libéré même en cas d'erreur (`pcall`). |
+| Robux | Aucun produit, passe ni invite d'achat (test statique sur `Evolution.lua` et `actions.evolve` ; `ProcessReceipt` ne touche ni `f` ni `evo`). |
+| Force | Pv et attaque x1,10 : la forme 2 d'une rareté reste strictement sous la forme 1 de la rareté suivante (1 620 comparaisons + 78 espèces du bestiaire). PvP enregistré et classé en direct : copies `(p, s, m)` sans forme (jamais plus fort). |
+| Profil | **v14** (changement voulu). Migration v13 -> v14 idempotente (`evo = {}` s'il manque), `merge` assainit `evo` et `slot.f` (seul `f = 2` sur un pet est gardé). Profil v15 jamais écrasé (testé). `onb` et `showcase` gardés tels quels. **Déployer tous les serveurs ensemble** (même consigne que pendingPick) : un serveur v13 charge un profil v14 sans le sauvegarder. |
+| Renaissance | `evo` hors de la liste blanche (4c8bcf9) : le compteur survit ; les formes 2 posées partent avec les emplacements (comme l'XP des pets). Testé. |
+| Télémétrie | Aucun événement ajouté (critère « 40 % évoluent en 7 jours » non mesurable tant que l'interface client n'existe pas ; la liste des 16 métriques est fermée et testée). |
+
+**Bilan idée 2 : 0 défaut critique, élevé ou moyen (fonction désactivée, interface client non fournie).**
