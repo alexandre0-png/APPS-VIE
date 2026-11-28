@@ -1,0 +1,355 @@
+-- Script : ServerScriptService/Hub (lieu HUB uniquement)
+-- Zones de lancement (1 à 5 joueurs), file d'attente visible, téléportation vers le lieu de jeu, liste des parties d'amis (registre
+-- MemoryStore) et bouton Rejoindre. Toute la logique de décision est dans Party (testée) ; ici : Roblox (joueurs, zones, services).
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local MemoryStoreService = game:GetService("MemoryStoreService")
+
+local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+if Config.Game.roleFor(game.PlaceId) == "game" then
+	return -- lieu de jeu : le code de la partie (Main) s'en charge
+end
+local PartyMod = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Party"))
+local Placement = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Placement"))
+local HubWorld = require(script.Parent:WaitForChild("HubWorld"))
+
+local G = Config.Game
+local world = HubWorld.build(Config)
+require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("SpawnGuard")).attach({
+	role = "hub",
+	safeCFrame = function()
+		return world.spawn.CFrame + Vector3.new(0, 4, 0)
+	end,
+})
+
+-- Décor catalogue du hub : chargé en arrière-plan (serveur, pcall, délai, scripts retirés) ; un échec ne retire rien (le hub est déjà décoré par le code).
+task.spawn(function()
+	local assets = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Assets")).new(Config, {
+		loadAsset = function(id)
+			return game:GetService("InsertService"):LoadAsset(id)
+		end,
+		spawn = task.spawn,
+		wait = task.wait,
+		clock = os.clock,
+		warn = warn,
+	})
+	local loaded = assets.loadDecor()
+	assets.loadProps()
+	-- Fontaine Blender sur la place : si elle est posée, la fontaine procédurale est retirée (sinon elle reste : repli)
+	local fountain = assets.cloneProp("fountain")
+	if fountain and assets.place(fountain, 0, 0, 0, Config.Assets.propsHeight.fountain, world.folder) then
+		for _, p in ipairs(world.fountainParts) do
+			p:Destroy()
+		end
+	end
+	-- Bancs et lampadaires Blender : chacun remplace son équivalent procédural une fois posé (la lumière des lampadaires reste, boule invisible)
+	assets.loadGroup("props", { bench = true, lamp = true })
+	local swapped = 0
+	for _, b in ipairs(world.benchItems) do
+		local clone = assets.cloneModel("props", "bench")
+		if clone and assets.place(clone, b.x, b.z, b.rot, Config.Assets.targetHeights.bench, world.folder) then
+			b.seat:Destroy()
+			b.back:Destroy()
+			swapped += 1
+		end
+	end
+	for _, l in ipairs(world.lampItems) do
+		local clone = assets.cloneModel("props", "lamp")
+		if clone and assets.place(clone, l.x, l.z, 0, Config.Assets.targetHeights.lamp, world.folder) then
+			l.post:Destroy()
+			l.head.Transparency = 1
+			swapped += 1
+		end
+	end
+	local placed = 0
+	for _, spot in ipairs(Config.HubDecor) do
+		local clone = assets.cloneDecor(spot[1])
+		if clone and HubWorld.placeModel(clone, spot[2], spot[3], spot[4], spot[5], world.folder) then
+			placed += 1
+		end
+	end
+	-- Village : maisons, puits, tour, pins, rochers, pont de pierre sur la mare, île sakura (Config.HubScenery) ; les arbres et fleurs procéduraux sous
+	-- l'empreinte d'un modèle posé sont retirés. Budget Parts séparé ; modèle refusé = rien ne change.
+	assets.loadGroup("scenery")
+	local village, vParts = 0, 0
+	for _, e in ipairs(Config.HubScenery) do
+		local dims = Config.Assets.sceneryDims[e[1]]
+		local st = assets.status["m:scenery." .. e[1]]
+		local cost = st and st.ok and st.parts or 0
+		if dims and cost > 0 and vParts + cost <= Config.Assets.sceneryBudgetParts then
+			local clone = assets.cloneModel("scenery", e[1])
+			local rot = e[4] or Placement.facing(-e[2], -e[3])
+			if clone and assets.place(clone, e[2], e[3], rot, (not e[5]) and dims.h or nil, world.folder, e[5] or dims.len, 0) then
+				village += 1
+				vParts += cost
+				for _, d in ipairs(world.folder:GetChildren()) do
+					local n = d.Name
+					if (n == "Trunk" or n == "Leaves" or n == "Flower" or n == "PathStone") and d:IsA("BasePart") then
+						if math.sqrt((d.Position.X - e[2]) ^ 2 + (d.Position.Z - e[3]) ^ 2) < dims.r + 2 then
+							d:Destroy()
+						end
+					end
+				end
+			end
+		end
+	end
+	print("[Hub] village : " .. village .. " modèle(s), " .. vParts .. " Parts (budget " .. Config.Assets.sceneryBudgetParts .. ")")
+	local lines, loadedN, requestedN = assets.reportLines()
+	for _, l in ipairs(lines) do
+		if l:find("ÉCHEC", 1, true) then
+			warn(l)
+		else
+			print(l)
+		end
+	end
+	print(("[Assets] TOTAL Blender (hub) %d/%d (repli procédural : %d)"):format(loadedN, requestedN, requestedN - loadedN))
+	local rv = Instance.new("StringValue")
+	rv.Name = "AssetReport"
+	rv:SetAttribute("Loaded", loadedN)
+	rv:SetAttribute("Requested", requestedN)
+	rv.Value = table.concat(lines, "\n"):sub(1, 15000)
+	rv.Parent = ReplicatedStorage
+	print("[Hub] décor catalogue : " .. loaded .. " modèle(s) chargé(s), " .. placed .. " placé(s), " .. swapped .. " banc(s)/lampadaire(s) Blender")
+end)
+
+local remote = Instance.new("RemoteEvent")
+remote.Name = "HubRemote"
+remote.Parent = ReplicatedStorage
+
+local function say(player, text, kind)
+	remote:FireClient(player, "msg", text, kind or "info")
+end
+
+---------------------------------------------------------------- Registre des parties (MemoryStore), tout sous pcall
+local map
+do
+	local ok, m = pcall(function()
+		return MemoryStoreService:GetHashMap(G.RegistryName)
+	end)
+	if ok then
+		map = m
+	else
+		warn("[Hub] MemoryStore indisponible : pas de liste de parties d'amis (" .. tostring(m) .. ")")
+	end
+end
+
+local store = {}
+function store.get(key)
+	assert(map, "MemoryStore indisponible")
+	return map:GetAsync(key)
+end
+function store.update(key, fn)
+	assert(map, "MemoryStore indisponible")
+	return map:UpdateAsync(key, fn, G.PartyTTL)
+end
+function store.remove(key)
+	if map then
+		map:RemoveAsync(key)
+	end
+end
+function store.list()
+	assert(map, "MemoryStore indisponible")
+	local items = map:ListItemsAsync(100):GetCurrentPage()
+	local out = {}
+	for _, it in ipairs(items) do
+		out[#out + 1] = it.value
+	end
+	return out
+end
+
+local P = PartyMod.new(Config, {
+	clock = os.clock,
+	guid = function()
+		return HttpService:GenerateGUID(false)
+	end,
+	reserve = function(placeId)
+		local code = TeleportService:ReserveServerAsync(placeId)
+		return code
+	end,
+	teleport = function(players, placeId, code, data)
+		local opts = Instance.new("TeleportOptions")
+		if code then
+			opts.ReservedServerAccessCode = code
+		end
+		opts:SetTeleportData(data)
+		TeleportService:TeleportAsync(placeId, players, opts)
+	end,
+	store = store,
+	log = warn,
+})
+
+---------------------------------------------------------------- Zones de lancement : qui est dans quel portail
+local function rootOf(player)
+	local char = player.Character
+	return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+local function zoneAt(pos)
+	for _, z in pairs(world.zones) do
+		local d = (Vector3.new(pos.X, 0, pos.Z) - z.center).Magnitude
+		if d <= z.radius then
+			return z
+		end
+	end
+	return nil
+end
+
+local launching = {} -- userId -> true pendant la téléportation (évite de relancer)
+
+local function doLaunch(group)
+	local players = {}
+	for _, uid in ipairs(group.members) do
+		local p = Players:GetPlayerByUserId(uid)
+		if p and p.Parent then
+			players[#players + 1] = p
+			launching[uid] = true
+		end
+	end
+	if #players == 0 then
+		return
+	end
+	local members = {}
+	for _, p in ipairs(players) do
+		members[#members + 1] = p.UserId
+		say(p, "🚀 Départ vers la partie…", "info")
+	end
+	local res = P.launch({ size = group.size, mode = group.mode, members = members, players = players, hostName = players[1].DisplayName })
+	if not res.ok then
+		for _, p in ipairs(players) do
+			launching[p.UserId] = nil
+			say(p, "⚠️ " .. res.message, "error")
+		end
+	else
+		task.delay(20, function() -- si la téléportation n'a pas fini par déplacer le joueur, on le libère
+			for _, p in ipairs(players) do
+				launching[p.UserId] = nil
+			end
+		end)
+	end
+end
+
+local function statusText(size, mode)
+	local st = P.status(size, mode)
+	if st.mode == "empty" then
+		return "Libre"
+	end
+	local base = st.count .. "/" .. size .. " joueur" .. (size > 1 and "s" or "")
+	if st.countdown then
+		return base .. " · départ " .. math.ceil(st.countdown) .. " s"
+	end
+	return base
+end
+
+local lastStatus = {}
+task.spawn(function()
+	while true do
+		for _, player in ipairs(Players:GetPlayers()) do
+			if not launching[player.UserId] then
+				local root = rootOf(player)
+				local zone = root and zoneAt(root.Position) or nil
+				local size = zone and P.key(zone.size, zone.mode) or nil
+				local cur = P.where[player.UserId]
+				if size ~= cur then
+					if size then
+						if not P.enter(player.UserId, zone.size, zone.mode) then
+							say(player, "Cette zone est pleine, choisis-en une autre.", "info")
+						end
+					else
+						P.leave(player.UserId)
+					end
+				end
+			end
+		end
+		for _, group in ipairs(P.collectLaunches()) do
+			task.spawn(doLaunch, group)
+		end
+		for key, z in pairs(world.zones) do
+			local txt = statusText(z.size, z.mode)
+			if lastStatus[key] ~= txt then
+				lastStatus[key] = txt
+				z.status.Text = txt
+			end
+		end
+		task.wait(0.25)
+	end
+end)
+
+---------------------------------------------------------------- Amis : liste des parties ouvertes, rejoindre
+local friendCache = {} -- userId -> { t, set }
+local function friendsOf(player)
+	local c = friendCache[player.UserId]
+	if c and os.clock() - c.t < 90 then
+		return c.set
+	end
+	local set = {}
+	local ok = pcall(function()
+		local pages = Players:GetFriendsAsync(player.UserId)
+		for _ = 1, 5 do
+			for _, f in ipairs(pages:GetCurrentPage()) do
+				set[f.Id] = true
+			end
+			if pages.IsFinished then
+				break
+			end
+			pages:AdvanceToNextPageAsync()
+		end
+	end)
+	if not ok and c then
+		return c.set
+	end
+	friendCache[player.UserId] = { t = os.clock(), set = set }
+	return set
+end
+
+local lastReq = {}
+remote.OnServerEvent:Connect(function(player, action, arg)
+	local now = os.clock()
+	if now - (lastReq[player] or 0) < 0.4 or type(action) ~= "string" then
+		return
+	end
+	lastReq[player] = now
+	if action == "parties" then
+		local list, ok = P.visibleFor(player.UserId, friendsOf(player))
+		remote:FireClient(player, "parties", list, ok)
+	elseif action == "join" then
+		if type(arg) ~= "string" or #arg > 64 or launching[player.UserId] then
+			return
+		end
+		launching[player.UserId] = true
+		P.leave(player.UserId)
+		local res = P.join(arg, player, player.UserId, friendsOf(player))
+		if not res.ok then
+			launching[player.UserId] = nil
+			say(player, "⚠️ " .. res.message, "error")
+		else
+			say(player, "🚀 Tu rejoins la partie…", "info")
+			task.delay(20, function()
+				launching[player.UserId] = nil
+			end)
+		end
+	end
+end)
+
+---------------------------------------------------------------- Arrivées et départs
+Players.PlayerAdded:Connect(function(player)
+	local ok, data = pcall(function()
+		return player:GetJoinData().TeleportData
+	end)
+	if ok and type(data) == "table" then
+		player:SetAttribute("ReturnVisit", true) -- de retour d'une partie : pas de survol d'accueil
+		if type(data.partyId) == "string" then
+			P.leaveParty(data.partyId, player.UserId) -- de retour de la partie : la place se libère
+		end
+		if data.reason == "full" then
+			task.delay(2, say, player, "Cette partie était pleine (5 joueurs maximum). Choisis-en une autre !", "info")
+		end
+	end
+end)
+Players.PlayerRemoving:Connect(function(player)
+	P.leave(player.UserId)
+	launching[player.UserId] = nil
+	lastReq[player] = nil
+	friendCache[player.UserId] = nil
+end)
