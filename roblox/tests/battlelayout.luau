@@ -145,6 +145,8 @@ return function(env)
 	---------------------------------------------------------------- 3. Lieu : sable ou herbe
 	suite("BattleLayout : fond d'arène (sable : colisée et duel ; herbe : arène PvE)")
 	check("Mode du combat tiré du message « start » : duel, classé en direct, classé enregistré, PNJ, tour", L.mode({ duel = true }) == "duel" and L.mode({ live = true, pvp = true }) == "live" and L.mode({ pvp = true }) == "pvp" and L.mode({ npc = true }) == "npc" and L.mode({}) == "tower" and L.mode(nil) == "tower" and L.mode({ duel = "oui" }) == "tower")
+	check("Fuir : un appui en tour / PNJ (aucun coût), deux appuis en duel / classé enregistré / classé en direct (forfait, trophées) ; mode inconnu -> deux appuis (prudence)", L.fleeNeedsConfirm("tower") == false and L.fleeNeedsConfirm("npc") == false and L.fleeNeedsConfirm("duel") == true and L.fleeNeedsConfirm("pvp") == true and L.fleeNeedsConfirm("live") == true and L.fleeNeedsConfirm("zzz") == true and L.fleeNeedsConfirm(nil) == true and L.fleeNeedsConfirm(7) == true)
+	check("Fuir : accepte aussi le message « start » (même décision que le mode)", L.fleeNeedsConfirm({}) == false and L.fleeNeedsConfirm({ npc = true }) == false and L.fleeNeedsConfirm({ duel = true }) == true and L.fleeNeedsConfirm({ pvp = true }) == true and L.fleeNeedsConfirm({ live = true, pvp = true }) == true)
 	check("Fond : sable pour le duel, le classé enregistré et le classé en direct ; herbe pour la tour, les PNJ et tout lieu inconnu", L.ground({ duel = true }) == "sand" and L.ground({ pvp = true }) == "sand" and L.ground({ live = true, pvp = true }) == "sand" and L.ground({ floor = 3 }) == "grass" and L.ground({ npc = true }) == "grass" and L.ground("colisee") == "sand" and L.ground("duel") == "sand" and L.ground("xyz") == "grass" and L.ground(nil) == "grass")
 	local pS, pG = L.palette("sand"), L.palette("grass")
 	check("Palettes sable / herbe propres à Chipe-Œufs : sol, bord, ciel, décor, lumière définis ; sable chaud (rouge > bleu), herbe verte (vert > rouge)", pS.ground[1] > pS.ground[3] and pG.ground[2] > pG.ground[1] and pS.skyTop ~= nil and pG.deco ~= nil and pS.light ~= nil and L.palette("?") == L.PALETTE.grass)
@@ -764,8 +766,30 @@ return function(env)
 	send(H, { k = "start", floor = 2, foe = "Dresseur", view = Battle.view(newBattle(3)), seconds = 10 })
 	RT.fire(findAll(H.gui, "Attack")[1], "Activated")
 	RT.fire(findAll(H.gui, "Flee")[1], "Activated")
+	check("Via BattleUi (tour) : Attaque -> « battleAct »/« attack » ; Fuir en UN appui -> « battleQuit » (aucun coût) ; rien d'autre n'est envoyé", #H.fired == 2 and H.fired[1][1] == "battleAct" and H.fired[1][2] == "attack" and H.fired[2][1] == "battleQuit" and findAll(H.gui, "Flee")[1].Text ~= "Sûr ?")
+	for k in pairs(H.fired) do
+		H.fired[k] = nil
+	end
+	send(H, { k = "start", floor = 0, npc = true, foe = "Marchand", view = Battle.view(newBattle(4)), seconds = 10 })
 	RT.fire(findAll(H.gui, "Flee")[1], "Activated")
-	check("Via BattleUi : Attaque -> « battleAct »/« attack » ; Fuir (2 appuis) -> « battleQuit » ; rien d'autre n'est envoyé", #H.fired == 2 and H.fired[1][1] == "battleAct" and H.fired[1][2] == "attack" and H.fired[2][1] == "battleQuit")
+	check("Via BattleUi (PNJ) : Fuir en UN appui -> « battleQuit »", #H.fired == 1 and H.fired[1][1] == "battleQuit")
+	for k in pairs(H.fired) do
+		H.fired[k] = nil
+	end
+	for i, extra in ipairs({ { duel = true }, { pvp = true }, { pvp = true, live = true } }) do
+		local pl = { k = "start", floor = 0, foe = "Rival", view = Battle.view(newBattle(10 + i)), seconds = 10 }
+		for k, v in pairs(extra) do
+			pl[k] = v
+		end
+		send(H, pl)
+		RT.fire(findAll(H.gui, "Flee")[1], "Activated")
+		check("Via BattleUi (duel / classé / direct, cas " .. i .. ") : un premier appui sur Fuir demande « Sûr ? » et n'envoie rien (l'abandon coûte)", #H.fired == 0 and findAll(H.gui, "Flee")[1].Text == "Sûr ?")
+		RT.fire(findAll(H.gui, "Flee")[1], "Activated")
+		check("Via BattleUi (duel / classé / direct, cas " .. i .. ") : le second appui envoie « battleQuit »", #H.fired == 1 and H.fired[1][1] == "battleQuit")
+		for k in pairs(H.fired) do
+			H.fired[k] = nil
+		end
+	end
 	-- un nouveau « start » pendant un combat remplace la scène (pas de doublon)
 	send(H, { k = "start", floor = 3, foe = "Autre", view = Battle.view(newBattle(5)), seconds = 10 })
 	check("Deuxième « start » sans fin : une seule scène (l'ancienne est détruite)", sceneRoots(H) == 1)

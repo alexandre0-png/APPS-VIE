@@ -222,6 +222,19 @@ function BattleLayout.mode(p)
 	return "tower"
 end
 
+-- « Fuir » : un appui là où l'abandon ne coûte rien (tour, PNJ : simple défaite sans perte), deux appuis là où il coûte (duel : forfait ; classé
+-- enregistré : trophées perdus ; classé en direct : forfait). Mode inconnu -> deux appuis (prudence). Accepte un mode ou un message « start ».
+function BattleLayout.fleeNeedsConfirm(modeOrPayload)
+	local mode = modeOrPayload
+	if type(modeOrPayload) == "table" then
+		mode = BattleLayout.mode(modeOrPayload)
+	end
+	if mode == "tower" or mode == "npc" then
+		return false
+	end
+	return true
+end
+
 function BattleLayout.ground(modeOrPayload)
 	local mode = modeOrPayload
 	if type(modeOrPayload) == "table" then

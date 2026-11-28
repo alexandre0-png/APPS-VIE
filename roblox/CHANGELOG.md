@@ -10,6 +10,12 @@ Citation : « Plus les pets sont rares, plus ils rapportent de pièces, plus ils
 2. **Force en combat** : `Battle.STATS[r]`, puissance pv + 3 x attaque + 2 x vitesse strictement croissante, x1,25 au moins ; profils tank / attaquant / rapide / équilibré, écart de 8 à 15 % dans une rareté, le plus fort d'une rareté sous le plus faible de la suivante. Tests « Règle (2) ». Rien d'achetable ne touche ces stats.
 3. **Pièces contre Robux** : tout article payable aux deux est plus cher et plus long en pièces : pour le débutant, temps de gain en pièces entre 4 et 12 fois le « temps Robux » (prix en R$ x `Config.PRICING_REF.secondsPerRobux`, taux du Sac de pièces : 20 min de revenu pour 99 R$ = 12,1 s par R$) ; jamais inatteignable. Les œufs Secret (1 499 R$), Exclusif (3 499 R$) et Divin (6 999 R$) sont vendus en Robux à prix fixe et rareté FIXE, contenu affiché, `random = true`, masqués et refusés si PolicyService restreint ; aucun avantage de combat acheté. Tests « Règle (3) ».
 
+## COMBAT : « Fuir » en un appui quand l'abandon ne coûte rien (2026-11-28)
+
+- **Décision** (d'après `actions.battleQuit` de `Main.server.lua`, lu et inchangé) : tour (PvE) et PNJ = simple défaite sans perte (PNJ : « rien n'est perdu ») -> **un appui**. Duel local (forfait), classé enregistré (`Config.PVP.loss` trophées perdus), classé en direct (`Lot7.Live.quit` : forfait) -> **deux appuis** (« Sûr ? », expire en 3 s, inchangé).
+- **Code** : fonction pure `BattleLayout.fleeNeedsConfirm(modeOuMessage)` (faux pour `tower` et `npc`, vrai sinon, mode inconnu = vrai par prudence) ; `BattleScene.lua` la lit une fois à la création d'après le même mode que sable / herbe. Aucun changement de protocole ni de logique serveur.
+- **Tests** : `battlelayout` (fonction pure, via BattleUi : tour et PNJ 1 appui, duel / classé / direct 2 appuis), `battlestates` (écran Changer en duel 2 appuis, en PvE 1 appui ; garde de source mise à jour). Non testé dans Studio.
+
 ## GRAPHISMES 9 : musique par zone (prête, sans pistes) (2026-11-28)
 **Rien n'a été entendu dans Studio ; aucune piste n'existe.**
 - `ReplicatedStorage/Music.lua` (pur) : zones hub (village + parcelles) / arène / château d'après `Config.lightingZoneAt`, volume cible (bas, plafond 0,3) = 0 en combat, si `SOUNDS_ENABLED = false`, si le volume général est muet ou si la piste manque ; fondu borné ; identifiants acceptés seulement au format `rbxassetid://<chiffres>`.

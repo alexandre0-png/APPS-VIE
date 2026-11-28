@@ -1203,12 +1203,16 @@ function BattleScene.create(o)
 			pcall(o.onSkip)
 		end
 	end)
-	conn(S.btn.flee.Activated, function() -- deux appuis : un abandon par erreur coûte un forfait (duel, classé)
+	local fleeConfirm = true -- deux appuis seulement si l'abandon coûte (duel, classé) ; un seul en tour / PNJ (L.fleeNeedsConfirm)
+	if type(L.fleeNeedsConfirm) == "function" then
+		fleeConfirm = L.fleeNeedsConfirm(mode) ~= false
+	end
+	conn(S.btn.flee.Activated, function()
 		if S.dimmed then
 			return
 		end
 		S.setTray(false)
-		if S.fleeToken > 0 then
+		if S.fleeToken > 0 or not fleeConfirm then
 			S.fleeToken = 0
 			S.btn.flee.Text = "🏃 Fuir"
 			if type(o.onFlee) == "function" then

@@ -17470,6 +17470,19 @@ function BattleLayout.mode(p)
 	return "tower"
 end
 
+-- « Fuir » : un appui là où l'abandon ne coûte rien (tour, PNJ : simple défaite sans perte), deux appuis là où il coûte (duel : forfait ; classé
+-- enregistré : trophées perdus ; classé en direct : forfait). Mode inconnu -> deux appuis (prudence). Accepte un mode ou un message « start ».
+function BattleLayout.fleeNeedsConfirm(modeOrPayload)
+	local mode = modeOrPayload
+	if type(modeOrPayload) == "table" then
+		mode = BattleLayout.mode(modeOrPayload)
+	end
+	if mode == "tower" or mode == "npc" then
+		return false
+	end
+	return true
+end
+
 function BattleLayout.ground(modeOrPayload)
 	local mode = modeOrPayload
 	if type(modeOrPayload) == "table" then
@@ -44051,12 +44064,16 @@ function BattleScene.create(o)
 			pcall(o.onSkip)
 		end
 	end)
-	conn(S.btn.flee.Activated, function() -- deux appuis : un abandon par erreur coûte un forfait (duel, classé)
+	local fleeConfirm = true -- deux appuis seulement si l'abandon coûte (duel, classé) ; un seul en tour / PNJ (L.fleeNeedsConfirm)
+	if type(L.fleeNeedsConfirm) == "function" then
+		fleeConfirm = L.fleeNeedsConfirm(mode) ~= false
+	end
+	conn(S.btn.flee.Activated, function()
 		if S.dimmed then
 			return
 		end
 		S.setTray(false)
-		if S.fleeToken > 0 then
+		if S.fleeToken > 0 or not fleeConfirm then
 			S.fleeToken = 0
 			S.btn.flee.Text = "🏃 Fuir"
 			if type(o.onFlee) == "function" then

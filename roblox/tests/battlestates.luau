@@ -537,6 +537,12 @@ return function(env)
 	RT.fire(findAll(HS.gui, "Swap")[1], "Activated")
 	RT.fire(findAll(HS.gui, "Swap")[1], "Activated")
 	check("Le bouton « Changer » ouvre puis referme l'écran (bascule)", #findAll(HS.gui, "SwapScreen") == 0)
+	do -- tour (PvE) : Fuir en un seul appui, même écran Changer ouvert (rien à confirmer, aucun coût)
+		local HT = mkScene(mkView(function(v) v.sides[1].units[2].hp = 5 end), { payload = {} })
+		RT.fire(findAll(HT.gui, "Swap")[1], "Activated")
+		RT.fire(findAll(HT.gui, "Flee")[1], "Activated")
+		check("PvE : un appui sur Fuir envoie « battleQuit » (pas de « Sûr ? ») et referme l'écran Changer", #HT.fired == 1 and HT.fired[1][1] == "battleQuit" and findAll(HT.gui, "Flee")[1].Text ~= "Sûr ?" and #findAll(HT.gui, "SwapScreen") == 0)
+	end
 	RT.step(3.5)
 	RT.fire(findAll(HS.gui, "Swap")[1], "Activated")
 	RT.fire(findAll(HS.gui, "SwapRow3")[1], "Activated")
@@ -776,5 +782,5 @@ return function(env)
 		end
 		return true
 	end)())
-	check("« Fuir » reste à deux appuis (premier : « Sûr ? », expire en 3 s)", string.find(bs, "S.btn.flee.Text = \"Sûr ?\"", 1, true) ~= nil and string.find(bs, "task.delay(3,", 1, true) ~= nil)
+	check("« Fuir » : confirmation « Sûr ? » (expire en 3 s) conservée pour les modes qui coûtent ; un appui en tour / PNJ via L.fleeNeedsConfirm", string.find(bs, "S.btn.flee.Text = \"Sûr ?\"", 1, true) ~= nil and string.find(bs, "task.delay(3,", 1, true) ~= nil and string.find(bs, "L.fleeNeedsConfirm(mode)", 1, true) ~= nil)
 end
