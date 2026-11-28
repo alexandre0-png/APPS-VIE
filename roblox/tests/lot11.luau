@@ -583,10 +583,11 @@ return function(env)
 		return seed2 / 2147483647
 	end
 	local rollOk, rollWhy = true, ""
+	local ALL_OPEN = { halloween = true, noel = true, saison1 = true } -- A5 : toutes les fenêtres ouvertes (sinon les espèces d'événement ne sortent pas)
 	for t = 1, 10 do
 		local seen = {}
 		for _ = 1, 6000 do
-			local r = Rules.rollPet(t, 0, false, rnd2, false)
+			local r = Rules.rollPet(t, 0, false, rnd2, false, ALL_OPEN)
 			if type(r.p) ~= "number" or not P[r.p] or P[r.p].tier ~= r.tier or r.tier < t then
 				rollOk, rollWhy = false, rollWhy .. " r" .. t
 			end
@@ -598,7 +599,7 @@ return function(env)
 			end
 		end
 	end
-	check("rollPet : de l'œuf de rareté r, chaque espèce de la rareté r sort, jamais de rareté inférieure, l'espèce correspond à la rareté annoncée" .. rollWhy, rollOk)
+	check("rollPet (toutes fenêtres ouvertes) : de l'œuf de rareté r, chaque espèce de la rareté r sort, jamais de rareté inférieure, l'espèce correspond à la rareté annoncée" .. rollWhy, rollOk)
 	local foldOk = true
 	local w = full.foldWeights({ 10, 10, 10, 10, 10, 10, 10, 10, 10, 20 })
 	for t = 1, 10 do
@@ -705,9 +706,9 @@ return function(env)
 	local Cal = loadPure("Calendar")
 	local Odds = loadPure("Odds")
 	local HP = loadPure("HatchPlan")
-	local function visibleKeys(cfg)
+	local function visibleKeys(cfg, open)
 		local set = {}
-		for _, cat in ipairs(Shop.visibleOffers({ season = { cur = 1 } }, cfg, false, nil)) do
+		for _, cat in ipairs(Shop.visibleOffers({ season = { cur = 1 }, open = open or { saison1 = true } }, cfg, false, nil)) do
 			for _, o in ipairs(cat.offers) do
 				set[o.key] = true
 			end
@@ -802,4 +803,153 @@ return function(env)
 		end
 		return n == 60 and full.Assets.petsMaxPartsNew == 40
 	end)())
+	---------------------------------------------------------------- A5 : espèces d'événement et de saison seulement dans leur fenêtre
+	;(function()
+		suite("A5 : espèces d'événement / de saison (champ event) tirées seulement dans leur fenêtre (EVENTS_CAL, saison)")
+		local Rewards = loadMod("roblox/src/ReplicatedStorage/Rewards.lua", "Rewards")
+		local Reveal = loadMod("roblox/src/ReplicatedStorage/Reveal.lua", "Reveal")
+		local OddsA = loadMod("roblox/src/ReplicatedStorage/Odds.lua", "Odds")
+		local ShopA = loadMod("roblox/src/ReplicatedStorage/Shop.lua", "Shop")
+		local SDA = loadMod("roblox/src/ReplicatedStorage/SeasonData.lua", "SeasonData")
+		local SA = loadMod("roblox/src/ReplicatedStorage/Season.lua", "Season").new(full, SDA)
+		local eventIdx = {}
+		for i, d in ipairs(full.PETS) do
+			if d.event ~= nil then
+				eventIdx[#eventIdx + 1] = i
+			end
+		end
+		check("Bestiaire : 3 espèces d'événement / de saison (#72 halloween, #73 noel, #74 saison1)", #eventIdx == 3 and eventIdx[1] == 72 and eventIdx[2] == 73 and eventIdx[3] == 74)
+		-- fenêtres calculées par Rewards.openSpeciesEvents (dates UTC, saison 1 = 1er déc. 2026 + 60 jours)
+		local function openAt(now)
+			return Rewards.openSpeciesEvents(full, now, SA.currentSeason(now).n)
+		end
+		local T_NONE, T_HALLO, T_HALLO_END, T_AFTER, T_XMAS, T_SEASON, T_SPRING = 1795867200, 1792929600, 1793491199, 1793491200, 1797768000, 1800014400, 1774440000
+		local function keys(o)
+			local out = {}
+			for k, v in pairs(o) do
+				if v == true then
+					out[#out + 1] = k
+				end
+			end
+			table.sort(out)
+			return table.concat(out, ",")
+		end
+		check("Fenêtres : 28 nov. 2026 = aucune ; 25 et 31 oct. 23:59:59 = halloween ; 1er nov. 00:00 = aucune ; 20 déc. = xmas, noel, saison1 ; 15 janv. 2027 = saison1 ; printemps = spring seul",
+			keys(openAt(T_NONE)) == "" and keys(openAt(T_HALLO)) == "halloween" and keys(openAt(T_HALLO_END)) == "halloween" and keys(openAt(T_AFTER)) == ""
+				and keys(openAt(T_XMAS)) == "noel,saison1,xmas" and keys(openAt(T_SEASON)) == "saison1" and keys(openAt(T_SPRING)) == "spring")
+		check("openSpeciesEvents : entrées invalides = ensemble vide, jamais d'erreur", keys(Rewards.openSpeciesEvents(full, nil, nil)) == "" and keys(Rewards.openSpeciesEvents(full, 0 / 0, 1.5)) == "" and keys(Rewards.openSpeciesEvents(full, "x", -1)) == "")
+		local RulesA = loadMod("roblox/src/ServerScriptService/Rules.lua", "Rules").new(full)
+		-- Park-Miller 48271 mod 2^31-1 (aucun produit > 2^53)
+		local seed = 20261128
+		local function pm()
+			seed = (seed * 48271) % 2147483647
+			return (seed - 1) / 2147483646
+		end
+		-- 1. hors fenêtre (open = {} et open = nil) : 200 000 tirages sur les 10 œufs, avec chance, Alien et pitié : jamais une espèce d'événement
+		local hits, badTier, n9, n9low = 0, 0, 0, 0
+		for k = 1, 200000 do
+			local egg = (k % 10) + 1
+			local r = RulesA.rollPet(egg, (k % 8) * 10, k % 7 == 0, pm, k % 13 == 0, (k % 2 == 0) and {} or nil)
+			if full.PETS[r.p].event ~= nil then
+				hits = hits + 1
+			end
+			if full.PETS[r.p].tier ~= r.tier then
+				badTier = badTier + 1
+			end
+			if egg == 9 then
+				n9 = n9 + 1
+				if r.tier == 8 then
+					n9low = n9low + 1
+				end
+			end
+		end
+		check("Hors fenêtre : 0 espèce d'événement / de saison sur 200 000 tirages Park-Miller (" .. hits .. ")", hits == 0 and badTier == 0)
+		check("Hors fenêtre : un œuf Exclusif (aucune espèce tirable) donne la rareté inférieure publiée (Secret), jamais rien d'invalide", n9 == 20000 and n9low == n9)
+		-- 2. dans la fenêtre : seule l'espèce de la fenêtre sort, fréquence conforme à Reveal.probability
+		local function tier9(open, N)
+			local cnt = {}
+			for _ = 1, N do
+				local r = RulesA.rollPet(9, 0, false, pm, false, open)
+				cnt[r.p] = (cnt[r.p] or 0) + 1
+			end
+			return cnt
+		end
+		local ch = tier9(openAt(T_HALLO), 20000)
+		check("Halloween : l'œuf Exclusif donne toujours #72 (Loup-garou citrouille), jamais #73 / #74", ch[72] == 20000 and ch[73] == nil and ch[74] == nil)
+		local cs = tier9(openAt(T_SEASON), 20000)
+		check("Saison 1 (hors événement) : l'œuf Exclusif donne toujours #74 (Corbeau couronné)", cs[74] == 20000 and cs[72] == nil and cs[73] == nil)
+		local cx = tier9(openAt(T_XMAS), 40000)
+		local px = Reveal.probability(full, RulesA, 9, 0, false, 73, 2, 1, false, openAt(T_XMAS)) / (full.SIZES[2].weight / 100) -- part de l'espèce (taille Normal, sans mutation retirées)
+		local sumM = 0
+		for _, m in ipairs(full.MUTS) do
+			sumM = sumM + m.weight
+		end
+		px = px / (full.MUTS[1].weight / sumM)
+		check("Noël + saison 1 : #73 et #74 à 50 % chacune (+-1,5 pt sur 40 000), Reveal.probability conforme (0,5), #72 jamais (" .. (cx[73] or 0) / 400 .. " %)",
+			cx[72] == nil and math.abs((cx[73] or 0) / 40000 - 0.5) <= 0.015 and math.abs((cx[74] or 0) / 40000 - 0.5) <= 0.015 and math.abs(px - 0.5) < 1e-9)
+		check("Reveal.probability : 0 pour une espèce hors fenêtre (open nil ou autre fenêtre), > 0 dans sa fenêtre",
+			Reveal.probability(full, RulesA, 9, 0, false, 72, 2, 1, false, nil) == 0 and Reveal.probability(full, RulesA, 9, 0, false, 72, 2, 1, false, openAt(T_SEASON)) == 0
+				and Reveal.probability(full, RulesA, 9, 0, false, 72, 2, 1, false, openAt(T_HALLO)) > 0 and Reveal.oneIn(full, RulesA, 9, 0, false, 74, 2, 1, false, nil) == math.huge)
+		check("Reveal.probability : œuf Exclusif hors fenêtre = loi de l'œuf Secret (même rareté effective)",
+			full.PETS[perTier[8][1]].tier == 8 and Reveal.probability(full, RulesA, 9, 0, false, perTier[8][1], 2, 1, false, nil) > 0
+				and math.abs(Reveal.probability(full, RulesA, 9, 0, false, perTier[8][1], 2, 1, false, nil) - Reveal.probability(full, RulesA, 8, 0, false, perTier[8][1], 2, 1, false, nil)) < 1e-15)
+		-- 3. tirage normal inchangé pour les raretés sans espèce d'événement (mêmes tirages avec ou sans fenêtre)
+		local same = true
+		for t = 1, 10 do
+			if t ~= 9 then
+				local s1, s2 = 777 + t, 777 + t
+				local function g1()
+					s1 = (s1 * 48271) % 2147483647
+					return (s1 - 1) / 2147483646
+				end
+				local function g2()
+					s2 = (s2 * 48271) % 2147483647
+					return (s2 - 1) / 2147483646
+				end
+				for _ = 1, 500 do
+					local a, b = RulesA.rollPet(t, 20, false, g1, false, nil), RulesA.rollPet(t, 20, false, g2, false, ALL_OPEN)
+					if a.p ~= b.p or a.s ~= b.s or a.m ~= b.m or a.tier ~= b.tier then
+						same = false
+					end
+				end
+			end
+		end
+		check("Raretés 1-8 et 10 : tirage identique avec ou sans fenêtre ouverte (rien d'autre ne change)", same)
+		-- 4. tapis : aucune rareté Exclusif (poids nul, standard et doré) ; Odds : compteur de référence inchangé, indépendant de la date
+		local fw, fg = full.foldWeights(full.BELT.weights.normal), full.foldWeights(full.BELT.weights.golden)
+		check("Tapis (standard et doré) : poids Exclusif nul, aucune espèce d'événement ne peut y sortir", fw[9] == 0 and fg[9] == 0 and full.BELT.weights.normal[9] == 0 and full.BELT.weights.golden[9] == 0)
+		check("Odds.forPet : compteur de référence fini et figé pour #72-#74 (indépendant des fenêtres, jamais recalculé)", type(OddsA.forPet(full, 72, 2, 1)) == "number" and OddsA.forPet(full, 72, 2, 1) == OddsA.forPet(full, 74, 2, 1))
+		-- 5. boutique : œuf Exclusif en vente seulement dans une fenêtre ; texte d'espèces = espèces tirables ; plumes refusées hors espèce
+		local function eggExVisible(open)
+			for _, cat in ipairs(ShopA.visibleOffers({ season = { cur = 1 }, open = open }, full, false, nil)) do
+				for _, o in ipairs(cat.offers) do
+					if o.key == "EggExclusive" then
+						return true
+					end
+				end
+			end
+			return false
+		end
+		local okNo, whyNo = ShopA.canBuy({ season = { cur = 1 }, cap = 10, slots = {}, eggBag = {} }, full, "EggExclusive", false)
+		local okH = ShopA.canBuy({ season = { cur = 1 }, cap = 10, slots = {}, eggBag = {}, open = openAt(T_HALLO) }, full, "EggExclusive", false)
+		check("Boutique : œuf Exclusif masqué et refusé par le serveur hors fenêtre (« closed »), en vente pendant Halloween ; Secret toujours en vente",
+			not eggExVisible(nil) and not eggExVisible(openAt(T_NONE)) and eggExVisible(openAt(T_HALLO)) and okNo == false and whyNo == "closed" and okH == true
+				and ShopA.canBuy({ season = { cur = 1 }, cap = 10, slots = {}, eggBag = {} }, full, "EggSecret", false) == true)
+		local txH = ShopA.eggContentText(full, "EggExclusive", nil, openAt(T_HALLO))
+		local txX = ShopA.eggContentText(full, "EggExclusive", nil, openAt(T_XMAS))
+		check("Fiche de l'œuf Exclusif : « 1 espèce possible » à Halloween, « 2 espèces possibles » à Noël (saison 1)", txH:find("1 espèce possible", 1, true) ~= nil and txX:find("2 espèces possibles", 1, true) ~= nil)
+		local evS = { k = "spring.2026", d = 0, q = 0, v = 0, l = 0, p = 300, x = 0 }
+		local okS, whyS = Rewards.plumeBuyExclusive(full, evS, true, nil, openAt(T_SPRING))
+		local evH = { k = "halloween.2026", d = 0, q = 0, v = 0, l = 0, p = 300, x = 0 }
+		local okPH = Rewards.plumeBuyExclusive(full, evH, true, nil, openAt(T_HALLO))
+		check("Plumes : œuf Exclusif refusé « closed » au printemps (aucune espèce Exclusif), plumes intactes ; accordé à Halloween", okS == false and whyS == "closed" and evS.p == 300 and okPH == true and evH.p == 150)
+		-- 6. passe de combat : l'espèce de saison reste donnée par NOM au palier 30 (récompense directe, pas un tirage)
+		local g = nil
+		for _, x in ipairs(SA.rewardFor(1, 30, "premium") or {}) do
+			if x.kind == "species" then
+				g = x
+			end
+		end
+		check("Passe de combat : palier 30 premium de la saison 1 = Corbeau couronné (récompense fixe, hors tirage)", g ~= nil and g.name == "Corbeau couronné")
+	end)()
 end

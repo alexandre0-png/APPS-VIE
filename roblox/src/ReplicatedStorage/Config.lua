@@ -77,6 +77,42 @@ function Config.tierLive(tier)
 	end
 	return false
 end
+-- A5 : espèces d'événement et de saison (champ `event` du bestiaire : « halloween », « noel », « saison1 »...). Elles ne font PAS partie du tirage normal :
+-- une telle espèce n'est tirable que si son étiquette est dans `open` (ensemble { [étiquette] = true } calculé par le serveur avec
+-- Rewards.openSpeciesEvents : événement limité de Config.EVENTS_CAL en cours, saison en cours). open = nil : aucune fenêtre ouverte.
+-- tierLive reste statique (rareté publiée) ; tierOpen dit si la rareté a au moins une espèce tirable MAINTENANT (boutique, plumes).
+function Config.speciesOpen(p, open)
+	local def = type(p) == "number" and Config.PETS[p] or nil
+	if type(def) ~= "table" then
+		return false
+	end
+	if def.event == nil then
+		return true
+	end
+	return type(open) == "table" and open[def.event] == true
+end
+-- Indices des espèces tirables d'une rareté (ordre de Config.PETS).
+function Config.speciesPool(tier, open)
+	local out = {}
+	for i, p in ipairs(Config.PETS) do
+		if p.tier == tier and Config.speciesOpen(i, open) then
+			out[#out + 1] = i
+		end
+	end
+	return out
+end
+function Config.tierOpen(tier, open)
+	return #Config.speciesPool(tier, open) > 0
+end
+-- Rareté effective d'un tirage : la rareté elle-même si elle a une espèce tirable, sinon la plus haute rareté inférieure qui en a une
+-- (seul cas : œuf Exclusif dont aucune fenêtre n'est ouverte, par exemple éclos après la fin de l'événement).
+function Config.poolTier(tier, open)
+	local t = math.floor(math.min(math.max(type(tier) == "number" and tier == tier and tier or 1, 1), Config.TIER_COUNT))
+	while t > 1 and not Config.tierOpen(t, open) do
+		t = t - 1
+	end
+	return t
+end
 -- Plus haute rareté publiée <= tier (1 au pire).
 function Config.liveEggTier(tier)
 	local t = math.floor(math.min(math.max(type(tier) == "number" and tier == tier and tier or 1, 1), Config.TIER_COUNT))

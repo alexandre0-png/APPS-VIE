@@ -614,6 +614,27 @@ function Rewards.limitedEvent(Config, today)
 	return nil
 end
 
+-- A5 : fenêtres ouvertes des espèces d'événement / de saison à l'instant `now` (secondes UNIX) : { [étiquette] = true }. Étiquettes : l'id de l'événement
+-- limité en cours (Config.EVENTS_CAL) et l'étiquette `event` de son espèce (halloween -> « halloween », xmas -> espèce 73 « noel ») ; « saison<N> »
+-- pendant la saison N en cours (seasonN >= 1, Season.currentSeason). Ensemble vide hors de toute fenêtre. Config.speciesOpen l'interprète.
+function Rewards.openSpeciesEvents(Config, now, seasonN)
+	local open = {}
+	if isnum(now) then
+		local limited = Rewards.limitedEvent(Config, math.floor(now / 86400))
+		if limited then
+			open[limited.id] = true
+			local sp = type(limited.species) == "number" and Config.PETS[limited.species] or nil
+			if type(sp) == "table" and type(sp.event) == "string" then
+				open[sp.event] = true
+			end
+		end
+	end
+	if isnum(seasonN) and seasonN >= 1 and seasonN % 1 == 0 then
+		open["saison" .. seasonN] = true
+	end
+	return open
+end
+
 -- Ensemble des effets actifs à l'instant `now` (secondes UNIX).
 function Rewards.activeEvents(Config, now)
 	local today = isnum(now) and math.floor(now / 86400) or 0
@@ -690,8 +711,9 @@ function Rewards.plumeAdd(Config, ev, source, active)
 end
 
 -- Œuf Exclusif contre 150 plumes (jamais plus de `maxExclusivePerEvent` par événement ; refusé tant que la rareté n'a aucune espèce publiée). store = { slots, cap, bag, mkEgg }.
--- Retourne (true, rareté, emplacement) ou (false, code : inactive, plumes, limit, notLive, bagFull).
-function Rewards.plumeBuyExclusive(Config, ev, active, store)
+-- Retourne (true, rareté, emplacement) ou (false, code : inactive, plumes, limit, notLive, closed, bagFull).
+-- open (A5) : fenêtres ouvertes (Rewards.openSpeciesEvents) ; refus « closed » si aucune espèce Exclusif n'est tirable maintenant (ex. événement sans espèce Exclusif).
+function Rewards.plumeBuyExclusive(Config, ev, active, store, open)
 	local P = Config.PLUMES
 	if active ~= true or ev.k == "" then
 		return false, "inactive"
@@ -705,6 +727,9 @@ function Rewards.plumeBuyExclusive(Config, ev, active, store)
 	local t = Rewards.tierIdx(Config, P.exclusiveName)
 	if not t or Rewards.liveTier(Config, t) ~= t then
 		return false, "notLive"
+	end
+	if type(Config.tierOpen) == "function" and not Config.tierOpen(t, open) then
+		return false, "closed"
 	end
 	local where
 	if store then

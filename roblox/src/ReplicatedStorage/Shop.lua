@@ -201,6 +201,11 @@ function Shop.status(profil, config, offre, restricted)
 	if type(offre.eggTier) == "number" and type(config.tierLive) == "function" and not config.tierLive(offre.eggTier) then
 		return "hidden", "notLive"
 	end
+	-- A5 : œuf d'une rareté dont toutes les espèces sont d'événement / de saison (Exclusif) : en vente seulement pendant une fenêtre ouverte
+	-- (profil.open, calculé par le serveur ; absent = aucune fenêtre). Le serveur revalide avec son propre profil (Shop.canBuy).
+	if type(offre.eggTier) == "number" and type(config.tierOpen) == "function" and not config.tierOpen(offre.eggTier, type(profil) == "table" and profil.open or nil) then
+		return "hidden", "closed"
+	end
 	-- lot 16 (intégration) : avant le début de la première saison (season.cur == 0), tout ce qui contient le passe de combat est masqué (rien à créditer)
 	local sc = season(profil).cur
 	if sc == 0 and (offre.perSeason or offre.key == "BundleRoyal" or offre.key == "BundleRoyalNoPass") then
@@ -349,7 +354,10 @@ local function weightsText(list, none)
 	end
 	return table.concat(out, ", ")
 end
-local function speciesCount(config, tier)
+local function speciesCount(config, tier, open)
+	if type(config.speciesPool) == "function" then
+		return #config.speciesPool(tier, open) -- A5 : espèces tirables maintenant (fenêtres d'événement / de saison)
+	end
 	local n = 0
 	for _, p in ipairs(config.PETS) do
 		if p.tier == tier then
@@ -360,8 +368,8 @@ local function speciesCount(config, tier)
 end
 
 -- Texte de probabilités d'un achat qui contient des œufs (sinon ""). Rareté FIXE affichée, table de contenu (Config.eggContentText avec les points d'amélioration
--- du joueur, `upPoints`, 5 par défaut), espèces, tailles et mutations. Les lignes sont séparées par « \n ».
-function Shop.eggContentText(config, key, upPoints)
+-- du joueur, `upPoints`, 5 par défaut), espèces, tailles et mutations. Les lignes sont séparées par « \n ». open (A5) : fenêtres ouvertes (profil.open).
+function Shop.eggContentText(config, key, upPoints, open)
 	local list = Shop.eggsOf(key)
 	if #list == 0 then
 		return ""
@@ -375,7 +383,7 @@ function Shop.eggContentText(config, key, upPoints)
 			lines[#lines + 1] = string.format("%s, rareté fixe %s", head, t.name)
 			lines[#lines + 1] = "Contenu : " .. config.eggContentText(e.tier, up)
 			do -- lot 16 : l'espèce Exclusif « de l'événement » arrive au lot 11 ; d'ici là elle est tirée au sort dans la rareté, comme les autres (fiche honnête)
-				local n = speciesCount(config, e.tier)
+				local n = speciesCount(config, e.tier, open)
 				if n > 0 then
 					lines[#lines + 1] = string.format("%d espèce%s possible%s, chacune %s %% (espèce tirée au sort dans la rareté).", n, n > 1 and "s" or "", n > 1 and "s" or "", pctText(100 / n))
 				end
@@ -410,7 +418,7 @@ function Shop.card(config, info, profil, key, restricted)
 	return {
 		key = key, title = i.title, def = i.def, detail = i.detail, notDo = i.notDo, chance = i.chance, limit = i.limit, icon = i.icon,
 		price = Shop.priceFor(profil, offre) or offre.price, state = st, owned = st == "owned", label = st == "owned" and Shop.OWNED_LABEL or nil,
-		odds = offre.random and Shop.eggContentText(config, key) or "", seeAlso = also,
+		odds = offre.random and Shop.eggContentText(config, key, nil, type(profil) == "table" and profil.open or nil) or "", seeAlso = also,
 	}
 end
 

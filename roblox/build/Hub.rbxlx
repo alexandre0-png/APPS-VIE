@@ -81,6 +81,42 @@ function Config.tierLive(tier)
 	end
 	return false
 end
+-- A5 : espèces d'événement et de saison (champ `event` du bestiaire : « halloween », « noel », « saison1 »...). Elles ne font PAS partie du tirage normal :
+-- une telle espèce n'est tirable que si son étiquette est dans `open` (ensemble { [étiquette] = true } calculé par le serveur avec
+-- Rewards.openSpeciesEvents : événement limité de Config.EVENTS_CAL en cours, saison en cours). open = nil : aucune fenêtre ouverte.
+-- tierLive reste statique (rareté publiée) ; tierOpen dit si la rareté a au moins une espèce tirable MAINTENANT (boutique, plumes).
+function Config.speciesOpen(p, open)
+	local def = type(p) == "number" and Config.PETS[p] or nil
+	if type(def) ~= "table" then
+		return false
+	end
+	if def.event == nil then
+		return true
+	end
+	return type(open) == "table" and open[def.event] == true
+end
+-- Indices des espèces tirables d'une rareté (ordre de Config.PETS).
+function Config.speciesPool(tier, open)
+	local out = {}
+	for i, p in ipairs(Config.PETS) do
+		if p.tier == tier and Config.speciesOpen(i, open) then
+			out[#out + 1] = i
+		end
+	end
+	return out
+end
+function Config.tierOpen(tier, open)
+	return #Config.speciesPool(tier, open) > 0
+end
+-- Rareté effective d'un tirage : la rareté elle-même si elle a une espèce tirable, sinon la plus haute rareté inférieure qui en a une
+-- (seul cas : œuf Exclusif dont aucune fenêtre n'est ouverte, par exemple éclos après la fin de l'événement).
+function Config.poolTier(tier, open)
+	local t = math.floor(math.min(math.max(type(tier) == "number" and tier == tier and tier or 1, 1), Config.TIER_COUNT))
+	while t > 1 and not Config.tierOpen(t, open) do
+		t = t - 1
+	end
+	return t
+end
 -- Plus haute rareté publiée <= tier (1 au pire).
 function Config.liveEggTier(tier)
 	local t = math.floor(math.min(math.max(type(tier) == "number" and tier == tier and tier or 1, 1), Config.TIER_COUNT))
@@ -7415,13 +7451,21 @@ return Assets
 local Reveal = {}
 
 -- Probabilité d'obtenir exactement (espèce p, taille s, mutation m) d'un œuf de rareté eggTier. guaranteed = tirage de pitié.
-function Reveal.probability(Config, Rules, eggTier, upPoints, alienBoost, p, s, m, guaranteed)
+-- open (A5) : fenêtres d'événement / de saison ouvertes, comme pour Rules.rollPet (nil = aucune) ; une espèce hors fenêtre a une probabilité nulle.
+function Reveal.probability(Config, Rules, eggTier, upPoints, alienBoost, p, s, m, guaranteed, open)
 	local def = Config.PETS[p]
 	if not def or not Config.SIZES[s] or not Config.MUTS[m] then
 		return 0
 	end
+	local pooled = type(Config.speciesPool) == "function"
+	if pooled and not Config.speciesOpen(p, open) then
+		return 0
+	end
 	local pTier
 	eggTier = Config.liveEggTier(eggTier)
+	if pooled then
+		eggTier = Config.poolTier(eggTier, open)
+	end
 	local nxt = Config.nextLiveTier(eggTier)
 	if guaranteed and eggTier <= Config.UPGRADE.maxEggTier and nxt then
 		pTier = def.tier == nxt and 1 or 0
@@ -7435,10 +7479,17 @@ function Reveal.probability(Config, Rules, eggTier, upPoints, alienBoost, p, s, 
 		return 0
 	end
 	local species = 0
-	for _, q in ipairs(Config.PETS) do
-		if q.tier == def.tier then
-			species = species + 1
+	if pooled then
+		species = #Config.speciesPool(def.tier, open)
+	else
+		for _, q in ipairs(Config.PETS) do
+			if q.tier == def.tier then
+				species = species + 1
+			end
 		end
+	end
+	if species == 0 then
+		return 0
 	end
 	local function share(weights, index)
 		local total = 0
@@ -7451,8 +7502,8 @@ function Reveal.probability(Config, Rules, eggTier, upPoints, alienBoost, p, s, 
 end
 
 -- « 1 sur N » : N = 1 / probabilité (math.huge si impossible).
-function Reveal.oneIn(Config, Rules, eggTier, upPoints, alienBoost, p, s, m, guaranteed)
-	local pr = Reveal.probability(Config, Rules, eggTier, upPoints, alienBoost, p, s, m, guaranteed)
+function Reveal.oneIn(Config, Rules, eggTier, upPoints, alienBoost, p, s, m, guaranteed, open)
+	local pr = Reveal.probability(Config, Rules, eggTier, upPoints, alienBoost, p, s, m, guaranteed, open)
 	return pr > 0 and 1 / pr or math.huge
 end
 
@@ -11449,6 +11500,27 @@ function Rewards.limitedEvent(Config, today)
 	return nil
 end
 
+-- A5 : fenêtres ouvertes des espèces d'événement / de saison à l'instant `now` (secondes UNIX) : { [étiquette] = true }. Étiquettes : l'id de l'événement
+-- limité en cours (Config.EVENTS_CAL) et l'étiquette `event` de son espèce (halloween -> « halloween », xmas -> espèce 73 « noel ») ; « saison<N> »
+-- pendant la saison N en cours (seasonN >= 1, Season.currentSeason). Ensemble vide hors de toute fenêtre. Config.speciesOpen l'interprète.
+function Rewards.openSpeciesEvents(Config, now, seasonN)
+	local open = {}
+	if isnum(now) then
+		local limited = Rewards.limitedEvent(Config, math.floor(now / 86400))
+		if limited then
+			open[limited.id] = true
+			local sp = type(limited.species) == "number" and Config.PETS[limited.species] or nil
+			if type(sp) == "table" and type(sp.event) == "string" then
+				open[sp.event] = true
+			end
+		end
+	end
+	if isnum(seasonN) and seasonN >= 1 and seasonN % 1 == 0 then
+		open["saison" .. seasonN] = true
+	end
+	return open
+end
+
 -- Ensemble des effets actifs à l'instant `now` (secondes UNIX).
 function Rewards.activeEvents(Config, now)
 	local today = isnum(now) and math.floor(now / 86400) or 0
@@ -11525,8 +11597,9 @@ function Rewards.plumeAdd(Config, ev, source, active)
 end
 
 -- Œuf Exclusif contre 150 plumes (jamais plus de `maxExclusivePerEvent` par événement ; refusé tant que la rareté n'a aucune espèce publiée). store = { slots, cap, bag, mkEgg }.
--- Retourne (true, rareté, emplacement) ou (false, code : inactive, plumes, limit, notLive, bagFull).
-function Rewards.plumeBuyExclusive(Config, ev, active, store)
+-- Retourne (true, rareté, emplacement) ou (false, code : inactive, plumes, limit, notLive, closed, bagFull).
+-- open (A5) : fenêtres ouvertes (Rewards.openSpeciesEvents) ; refus « closed » si aucune espèce Exclusif n'est tirable maintenant (ex. événement sans espèce Exclusif).
+function Rewards.plumeBuyExclusive(Config, ev, active, store, open)
 	local P = Config.PLUMES
 	if active ~= true or ev.k == "" then
 		return false, "inactive"
@@ -11540,6 +11613,9 @@ function Rewards.plumeBuyExclusive(Config, ev, active, store)
 	local t = Rewards.tierIdx(Config, P.exclusiveName)
 	if not t or Rewards.liveTier(Config, t) ~= t then
 		return false, "notLive"
+	end
+	if type(Config.tierOpen) == "function" and not Config.tierOpen(t, open) then
+		return false, "closed"
 	end
 	local where
 	if store then
@@ -11973,7 +12049,7 @@ I.EggR5 = egg(5, "Légendaire", UP_HEAD)
 I.ExclusiveEgg = egg(6, "Mythique", UP_HEAD .. " Ex-« Œuf exclusif Mythique » : à ne pas confondre avec la rareté Exclusif.")
 I.EggR7 = egg(7, "Ultra Rare", FIXED_HEAD)
 I.EggSecret = egg(8, "Secret", FIXED_HEAD .. " Masqué tant qu'aucune espèce Secret n'est publiée.")
-I.EggExclusive = egg(9, "Exclusif", FIXED_HEAD .. " Pour l'instant, l'espèce est tirée au sort parmi les espèces Exclusif publiées (table affichée), comme la taille et la mutation. Masqué tant qu'aucune espèce Exclusif n'est publiée.", "ne donne aucune force en combat, ne protège pas du vol et rapporte moins qu'un Secret")
+I.EggExclusive = egg(9, "Exclusif", FIXED_HEAD .. " Les espèces Exclusif sont liées à une fenêtre (fête limitée ou saison du passe de combat) : l'œuf n'est en vente que pendant une fenêtre ouverte et l'espèce est tirée au sort parmi celles de la fenêtre en cours (table affichée), comme la taille et la mutation. Masqué hors fenêtre.", "ne donne aucune force en combat, ne protège pas du vol et rapporte moins qu'un Secret")
 I.EggDivine = egg(10, "Divin", FIXED_HEAD .. " Masqué tant qu'aucune espèce Divin n'est publiée.")
 
 ---------------------------------------------------------------- Chance & boosts
@@ -12486,6 +12562,11 @@ function Shop.status(profil, config, offre, restricted)
 	if type(offre.eggTier) == "number" and type(config.tierLive) == "function" and not config.tierLive(offre.eggTier) then
 		return "hidden", "notLive"
 	end
+	-- A5 : œuf d'une rareté dont toutes les espèces sont d'événement / de saison (Exclusif) : en vente seulement pendant une fenêtre ouverte
+	-- (profil.open, calculé par le serveur ; absent = aucune fenêtre). Le serveur revalide avec son propre profil (Shop.canBuy).
+	if type(offre.eggTier) == "number" and type(config.tierOpen) == "function" and not config.tierOpen(offre.eggTier, type(profil) == "table" and profil.open or nil) then
+		return "hidden", "closed"
+	end
 	-- lot 16 (intégration) : avant le début de la première saison (season.cur == 0), tout ce qui contient le passe de combat est masqué (rien à créditer)
 	local sc = season(profil).cur
 	if sc == 0 and (offre.perSeason or offre.key == "BundleRoyal" or offre.key == "BundleRoyalNoPass") then
@@ -12634,7 +12715,10 @@ local function weightsText(list, none)
 	end
 	return table.concat(out, ", ")
 end
-local function speciesCount(config, tier)
+local function speciesCount(config, tier, open)
+	if type(config.speciesPool) == "function" then
+		return #config.speciesPool(tier, open) -- A5 : espèces tirables maintenant (fenêtres d'événement / de saison)
+	end
 	local n = 0
 	for _, p in ipairs(config.PETS) do
 		if p.tier == tier then
@@ -12645,8 +12729,8 @@ local function speciesCount(config, tier)
 end
 
 -- Texte de probabilités d'un achat qui contient des œufs (sinon ""). Rareté FIXE affichée, table de contenu (Config.eggContentText avec les points d'amélioration
--- du joueur, `upPoints`, 5 par défaut), espèces, tailles et mutations. Les lignes sont séparées par « \n ».
-function Shop.eggContentText(config, key, upPoints)
+-- du joueur, `upPoints`, 5 par défaut), espèces, tailles et mutations. Les lignes sont séparées par « \n ». open (A5) : fenêtres ouvertes (profil.open).
+function Shop.eggContentText(config, key, upPoints, open)
 	local list = Shop.eggsOf(key)
 	if #list == 0 then
 		return ""
@@ -12660,7 +12744,7 @@ function Shop.eggContentText(config, key, upPoints)
 			lines[#lines + 1] = string.format("%s, rareté fixe %s", head, t.name)
 			lines[#lines + 1] = "Contenu : " .. config.eggContentText(e.tier, up)
 			do -- lot 16 : l'espèce Exclusif « de l'événement » arrive au lot 11 ; d'ici là elle est tirée au sort dans la rareté, comme les autres (fiche honnête)
-				local n = speciesCount(config, e.tier)
+				local n = speciesCount(config, e.tier, open)
 				if n > 0 then
 					lines[#lines + 1] = string.format("%d espèce%s possible%s, chacune %s %% (espèce tirée au sort dans la rareté).", n, n > 1 and "s" or "", n > 1 and "s" or "", pctText(100 / n))
 				end
@@ -12695,7 +12779,7 @@ function Shop.card(config, info, profil, key, restricted)
 	return {
 		key = key, title = i.title, def = i.def, detail = i.detail, notDo = i.notDo, chance = i.chance, limit = i.limit, icon = i.icon,
 		price = Shop.priceFor(profil, offre) or offre.price, state = st, owned = st == "owned", label = st == "owned" and Shop.OWNED_LABEL or nil,
-		odds = offre.random and Shop.eggContentText(config, key) or "", seeAlso = also,
+		odds = offre.random and Shop.eggContentText(config, key, nil, type(profil) == "table" and profil.open or nil) or "", seeAlso = also,
 	}
 end
 
@@ -13384,7 +13468,7 @@ D.SEASON = {
 	freeEggMax = "Épique", -- plus haute rareté d'œuf de la piste gratuite (hors palier 30)
 	premiumEggMax = "Mythique", -- plus haute rareté d'œuf de la piste premium
 	freeFinalEgg = "Légendaire", -- œuf du palier 30 gratuit
-	exclusiveTier = "Exclusif", -- rareté de l'espèce de saison (donnée uniquement par la piste premium, palier 30)
+	exclusiveTier = "Exclusif", -- rareté de l'espèce de saison (garantie par la piste premium au palier 30 ; A5 : aussi tirable d'un œuf Exclusif pendant la saison, jamais hors saison)
 	plusTiers = 10, -- paliers offerts par Premium+ et par le complément
 }
 
@@ -13426,6 +13510,8 @@ D.THEMES = {
 -- Au-delà de la saison 6 : à renseigner (nil = cosmétique de repli).
 -- Lot 11 : la saison 1 donne « Corbeau couronné », l'espèce Exclusif du bestiaire marquée event = "saison1" ; les saisons 2 à 6 gardent leur nom prévu
 -- (espèces pas encore créées : trophée de repli, aucune récompense perdue). Halloween / Noël (Loup-garou citrouille, Renne étoilé) relèvent des événements.
+-- A5 : une espèce marquée event n'est tirée d'un œuf Exclusif que pendant sa fenêtre (« saison1 » = saison 1 en cours, Rewards.openSpeciesEvents) ;
+-- hors fenêtre, jamais (ni œuf, ni tapis). La récompense du palier 30 reste donnée par nom, hors tirage.
 D.SPECIES = { "Corbeau couronné", "Yéti d'Aurore", "Loup d'Orage", "Chat d'Éclipse", "Cerf des Bois", "Griffon des Nuages" }
 
 -- Libellés des cosmétiques (clé -> début du libellé). L'identifiant final est "s<n>_<clé>" : propre à la saison, jamais réutilisé.

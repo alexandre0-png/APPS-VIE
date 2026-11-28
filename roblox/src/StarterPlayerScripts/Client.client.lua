@@ -774,7 +774,7 @@ local openPanel -- lot 16 : déclarée ici (les fiches de la boutique ouvrent le
 function L15.shopProfile()
 	local l = type(state.l16) == "table" and state.l16 or {}
 	local se = type(l.season) == "table" and l.season or {}
-	return { passes = type(l.owned) == "table" and l.owned or state.passes or {}, once = type(l.once) == "table" and l.once or {}, season = { cur = se.cur or 0, premium = se.premium, plus = se.plus } }
+	return { passes = type(l.owned) == "table" and l.owned or state.passes or {}, once = type(l.once) == "table" and l.once or {}, season = { cur = se.cur or 0, premium = se.premium, plus = se.plus }, open = type(l.open) == "table" and l.open or nil }
 end
 local function iconOf(key)
 	local info = L15.ShopInfo[key]

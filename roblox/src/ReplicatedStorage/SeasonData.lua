@@ -14,7 +14,7 @@ D.SEASON = {
 	freeEggMax = "Épique", -- plus haute rareté d'œuf de la piste gratuite (hors palier 30)
 	premiumEggMax = "Mythique", -- plus haute rareté d'œuf de la piste premium
 	freeFinalEgg = "Légendaire", -- œuf du palier 30 gratuit
-	exclusiveTier = "Exclusif", -- rareté de l'espèce de saison (donnée uniquement par la piste premium, palier 30)
+	exclusiveTier = "Exclusif", -- rareté de l'espèce de saison (garantie par la piste premium au palier 30 ; A5 : aussi tirable d'un œuf Exclusif pendant la saison, jamais hors saison)
 	plusTiers = 10, -- paliers offerts par Premium+ et par le complément
 }
 
@@ -56,6 +56,8 @@ D.THEMES = {
 -- Au-delà de la saison 6 : à renseigner (nil = cosmétique de repli).
 -- Lot 11 : la saison 1 donne « Corbeau couronné », l'espèce Exclusif du bestiaire marquée event = "saison1" ; les saisons 2 à 6 gardent leur nom prévu
 -- (espèces pas encore créées : trophée de repli, aucune récompense perdue). Halloween / Noël (Loup-garou citrouille, Renne étoilé) relèvent des événements.
+-- A5 : une espèce marquée event n'est tirée d'un œuf Exclusif que pendant sa fenêtre (« saison1 » = saison 1 en cours, Rewards.openSpeciesEvents) ;
+-- hors fenêtre, jamais (ni œuf, ni tapis). La récompense du palier 30 reste donnée par nom, hors tirage.
 D.SPECIES = { "Corbeau couronné", "Yéti d'Aurore", "Loup d'Orage", "Chat d'Éclipse", "Cerf des Bois", "Griffon des Nuages" }
 
 -- Libellés des cosmétiques (clé -> début du libellé). L'identifiant final est "s<n>_<clé>" : propre à la saison, jamais réutilisé.

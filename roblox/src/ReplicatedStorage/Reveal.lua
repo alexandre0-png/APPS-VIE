@@ -4,13 +4,21 @@
 local Reveal = {}
 
 -- Probabilité d'obtenir exactement (espèce p, taille s, mutation m) d'un œuf de rareté eggTier. guaranteed = tirage de pitié.
-function Reveal.probability(Config, Rules, eggTier, upPoints, alienBoost, p, s, m, guaranteed)
+-- open (A5) : fenêtres d'événement / de saison ouvertes, comme pour Rules.rollPet (nil = aucune) ; une espèce hors fenêtre a une probabilité nulle.
+function Reveal.probability(Config, Rules, eggTier, upPoints, alienBoost, p, s, m, guaranteed, open)
 	local def = Config.PETS[p]
 	if not def or not Config.SIZES[s] or not Config.MUTS[m] then
 		return 0
 	end
+	local pooled = type(Config.speciesPool) == "function"
+	if pooled and not Config.speciesOpen(p, open) then
+		return 0
+	end
 	local pTier
 	eggTier = Config.liveEggTier(eggTier)
+	if pooled then
+		eggTier = Config.poolTier(eggTier, open)
+	end
 	local nxt = Config.nextLiveTier(eggTier)
 	if guaranteed and eggTier <= Config.UPGRADE.maxEggTier and nxt then
 		pTier = def.tier == nxt and 1 or 0
@@ -24,10 +32,17 @@ function Reveal.probability(Config, Rules, eggTier, upPoints, alienBoost, p, s, 
 		return 0
 	end
 	local species = 0
-	for _, q in ipairs(Config.PETS) do
-		if q.tier == def.tier then
-			species = species + 1
+	if pooled then
+		species = #Config.speciesPool(def.tier, open)
+	else
+		for _, q in ipairs(Config.PETS) do
+			if q.tier == def.tier then
+				species = species + 1
+			end
 		end
+	end
+	if species == 0 then
+		return 0
 	end
 	local function share(weights, index)
 		local total = 0
@@ -40,8 +55,8 @@ function Reveal.probability(Config, Rules, eggTier, upPoints, alienBoost, p, s, 
 end
 
 -- « 1 sur N » : N = 1 / probabilité (math.huge si impossible).
-function Reveal.oneIn(Config, Rules, eggTier, upPoints, alienBoost, p, s, m, guaranteed)
-	local pr = Reveal.probability(Config, Rules, eggTier, upPoints, alienBoost, p, s, m, guaranteed)
+function Reveal.oneIn(Config, Rules, eggTier, upPoints, alienBoost, p, s, m, guaranteed, open)
+	local pr = Reveal.probability(Config, Rules, eggTier, upPoints, alienBoost, p, s, m, guaranteed, open)
 	return pr > 0 and 1 / pr or math.huge
 end
 

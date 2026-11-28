@@ -333,9 +333,10 @@ end
 local function rollPet(s, eggTier, guaranteed)
 	local up = Config.effectiveUp(eggTier, luckPoints(s), Config.dexTopTier(s.data.dex)) -- lot 9 : pas d'amélioration vers une rareté jamais découverte
 	local alien = evKey() == "alien"
-	local pet = Rules.rollPet(eggTier, up, alien, rnd, guaranteed)
+	local open = Lot7.L16.openEv(os.time()) -- A5 : espèces d'événement / de saison seulement dans leur fenêtre
+	local pet = Rules.rollPet(eggTier, up, alien, rnd, guaranteed, open)
 	pet.p = L15.Rewards.featuredPick(Config, L15.Rewards.rotation(Config, L15.Rewards.weekOf(os.time() // 86400)), pet.p, rnd) -- lot 15 : espèce vedette de la semaine (poids x2)
-	return pet, up, alien
+	return pet, up, alien, open
 end
 
 ---------------------------------------------------------------- Missions quotidiennes
@@ -1081,8 +1082,8 @@ function hatch(s, i)
 		return
 	end
 	local guaranteed = Config.PITY_ENABLED and sl.t <= Config.UPGRADE.maxEggTier and d.pity >= Config.PITY_EVERY - 1
-	local p, upPoints, alienBoost = rollPet(s, sl.t, guaranteed)
-	local oneIn = Reveal.oneIn(Config, Rules, sl.t, upPoints, alienBoost, p.p, p.s, p.m, guaranteed)
+	local p, upPoints, alienBoost, open = rollPet(s, sl.t, guaranteed)
+	local oneIn = Reveal.oneIn(Config, Rules, sl.t, upPoints, alienBoost, p.p, p.s, p.m, guaranteed, open)
 	if p.tier > sl.t then
 		d.pity = 0
 	elseif sl.t <= Config.UPGRADE.maxEggTier then
@@ -4607,10 +4608,10 @@ do
 	function actions.plumeBuy(s)
 		local ev = L15.daySync(s)
 		local st, before = store(s)
-		local ok, t = Rewards.plumeBuyExclusive(Lot7.L16.bagCfg(s), s.data.event, ev ~= nil, st)
+		local ok, t = Rewards.plumeBuyExclusive(Lot7.L16.bagCfg(s), s.data.event, ev ~= nil, st, Lot7.L16.openEv(os.time()))
 		if not ok then
 			local m = { inactive = "🪶 Aucun événement en cours.", limit = "🪶 Tu as déjà obtenu le maximum d'Œufs Exclusifs de cet événement.", plumes = "🪶 Il te faut " .. Config.PLUMES.exclusiveCost .. " plumes d'événement.",
-				notLive = "🪶 L'Œuf Exclusif arrive bientôt : garde tes plumes pour cet événement.", bagFull = MSG.bagFull }
+				notLive = "🪶 L'Œuf Exclusif arrive bientôt : garde tes plumes pour cet événement.", closed = "🪶 Aucune espèce Exclusif n'est disponible pendant cet événement : garde tes plumes.", bagFull = MSG.bagFull }
 			notify(s.player, m[t] or m.inactive, "refuse")
 			return
 		end
@@ -5508,6 +5509,10 @@ do
 	local gaps = {} -- [Player] = { [clé] = os.clock() } : pauses anti-rafale des demandes (libérées au départ)
 	local bagPlus = setmetatable({ EGG_BAG = { size = Config.EGG_BAG.sizePlus } }, { __index = Config })
 
+	-- A5 : fenêtres ouvertes des espèces d'événement / de saison (événement limité en cours, saison en cours), calculées par le SERVEUR seul.
+	function L16.openEv(now)
+		return L15.Rewards.openSpeciesEvents(Config, now, S.currentSeason(now).n)
+	end
 	-- Config vue par les règles du sac d'œufs : 20 places avec le passe EggBagPlus, 10 sinon.
 	function L16.bagCfg(s)
 		return (s and s.passes and s.passes.EggBagPlus == true) and bagPlus or Config
@@ -5558,7 +5563,7 @@ do
 		for k, v in pairs(d.once) do
 			once[k] = v
 		end
-		return { cap = cap(s), slots = d.slots, eggBag = d.eggBag, passes = ownedPasses(s), once = once, season = { cur = cur.n, premium = se.premium, plus = se.plus } }
+		return { cap = cap(s), slots = d.slots, eggBag = d.eggBag, passes = ownedPasses(s), once = once, season = { cur = cur.n, premium = se.premium, plus = se.plus }, open = L16.openEv(os.time()) }
 	end
 
 	---------------------------------------------------------------- Rangement des œufs : base, puis sac, puis coffre de débordement (jamais de perte)
@@ -6004,7 +6009,7 @@ do
 		end
 		return {
 			once = d.once, overflow = Shop.overflowCount(d), bagMax = L16.bagCfg(s).EGG_BAG.size, emote = d.emote, followerMax = L16.followerMax(s),
-			doubleLeft = math.max(0, d.doubleUntil - now), arenaLeft = L16.arenaExtra(s), owned = ownedPasses(s),
+			doubleLeft = math.max(0, d.doubleUntil - now), arenaLeft = L16.arenaExtra(s), owned = ownedPasses(s), open = L16.openEv(now), -- A5 : affichage seulement (le serveur recalcule)
 			season = { cur = cur.n, premium = se.premium, plus = se.plus, tier = tier, xp = se.xp, daysLeft = cur.daysLeft or 0, startsAt = Config.SEASON.start, claimable = claimable, prev = se.prev ~= nil and not se.prev.seen },
 		}
 	end

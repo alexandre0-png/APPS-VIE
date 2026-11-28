@@ -100,20 +100,18 @@ function Rules.new(Config)
 
 	-- Tire un pet : { p = index d'espèce, s = index de taille, m = index de mutation }.
 	-- `guaranteed` : tirage de pitié, le pet est forcément d'une rareté au-dessus de l'œuf (sauf œuf de rareté maximale).
-	function R.rollPet(eggTier, upPoints, alienBoost, rnd, guaranteed)
+	-- `open` (A5) : fenêtres d'événement / de saison ouvertes ({ [étiquette] = true }, Rewards.openSpeciesEvents) ; nil = aucune. Une espèce marquée `event`
+	-- n'est tirée que si sa fenêtre est ouverte ; une rareté sans espèce tirable (œuf Exclusif hors fenêtre) donne la rareté inférieure (Config.poolTier).
+	function R.rollPet(eggTier, upPoints, alienBoost, rnd, guaranteed, open)
 		local tier
-		eggTier = Config.liveEggTier(eggTier) -- rareté sans espèce publiée : celle publiée juste en dessous (A.3)
+		eggTier = Config.poolTier(Config.liveEggTier(eggTier), open) -- rareté sans espèce publiée (A.3) ou sans espèce tirable maintenant (A5) : celle juste en dessous
 		if guaranteed and eggTier <= Config.UPGRADE.maxEggTier and Config.nextLiveTier(eggTier) then
 			tier = Config.nextLiveTier(eggTier)
 		else
 			tier = R.pickTier(eggTier, upPoints, rnd)
 		end
-		local ids = {}
-		for i, p in ipairs(Config.PETS) do
-			if p.tier == tier then
-				ids[#ids + 1] = i
-			end
-		end
+		tier = Config.poolTier(tier, open)
+		local ids = Config.speciesPool(tier, open)
 		local pick = ids[math.min(#ids, math.floor(rnd() * #ids) + 1)]
 		return { p = pick, s = R.wpick(R.sizeWeights(), rnd), m = R.wpick(R.mutWeights(alienBoost), rnd), tier = tier }
 	end
