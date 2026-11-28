@@ -1942,7 +1942,28 @@ Config.VFX = { quality = nil }
 Config.Culling = { enabled = true, cullAt = 170, showAt = 140, interval = 1, batch = 150, refresh = 20 }
 
 -- Diagnostic des modèles Blender : petit « Blender N/M » en bas à gauche (hub et partie) et rapport complet par F3. À repasser à false après le test.
-Config.Debug = { AssetReport = true }
+-- A9 : forceHatch = rareté (1 à 10) imposée à CHAQUE éclosion, pour voir les 10 animations et les espèces Secret / Exclusif / Divin dans Studio
+-- (acceptation du lot 10, test 3 du lot 11). DÉSACTIVÉ par défaut (false) et SANS EFFET en production : le serveur ne le lit qu'avec
+-- RunService:IsStudio() (Config.debugForceTier). Avec lui, toutes les fenêtres d'espèces d'événement sont ouvertes (A5) pour tester l'Exclusif.
+Config.Debug = { AssetReport = true, forceHatch = false }
+-- Rareté imposée par Debug.forceHatch, ou nil : seulement si isStudio == true et si la valeur est une rareté publiée (entier 1..TIER_COUNT).
+function Config.debugForceTier(isStudio)
+	local f = type(Config.Debug) == "table" and Config.Debug.forceHatch or nil
+	if isStudio ~= true or type(f) ~= "number" or f ~= f or f % 1 ~= 0 or f < 1 or f > Config.TIER_COUNT or not Config.tierLive(f) then
+		return nil
+	end
+	return f
+end
+-- Toutes les étiquettes d'espèces d'événement / de saison du bestiaire ({ [étiquette] = true }) : fenêtres ouvertes de Debug.forceHatch.
+function Config.allEventTags()
+	local out = {}
+	for _, p in ipairs(Config.PETS) do
+		if type(p.event) == "string" then
+			out[p.event] = true
+		end
+	end
+	return out
+end
 
 -- Mini-carte (coin droit) : activable par le bouton 🗺 ; `radius` studs du centre au bord, `size` pixels, `hz` mises à jour par seconde (faible : mobile).
 Config.MINIMAP = { enabled = true, radius = 260, size = 112, sizeSmall = 84, hz = 4, guardRange = 90, maxDots = 24 }

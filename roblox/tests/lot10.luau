@@ -866,4 +866,69 @@ return function(env)
 		check("floatText : texte flottant créé puis détruit ; entrées invalides sans erreur", lab ~= nil and lab.Text == "Super efficace !" and lab2 ~= nil and kids(gui) == 0 and #RT.errors == 0)
 	end
 	check("Fin du lot 10 : aucune erreur dans le runtime factice (" .. #RT.errors .. ")", #RT.errors == 0)
+	---------------------------------------------------------------- A9 : Config.Debug.forceHatch (Studio seulement, désactivé par défaut)
+	;(function()
+		suite("A9 : Config.Debug.forceHatch désactivé par défaut, sans effet hors Studio, tirage normal inchangé")
+		local COLOR = { fromRGB = function(r, g, b) return { R = r / 255, G = g / 255, B = b / 255 } end }
+		local Best = load("roblox/src/ReplicatedStorage/Bestiary.lua", "Bestiary", { Color3 = COLOR })
+		local function realConfig()
+			return load("roblox/src/ReplicatedStorage/Config.lua", "Config", {
+				Color3 = COLOR,
+				script = { Parent = { WaitForChild = function(_, n) return n end } },
+				require = function(_) return Best end,
+			})
+		end
+		local C = realConfig()
+		check("Config.Debug.forceHatch : false par défaut (aucune rareté imposée), même en Studio", (C.Debug.forceHatch == false or C.Debug.forceHatch == nil) and C.debugForceTier(true) == nil and C.debugForceTier(false) == nil)
+		C.Debug.forceHatch = 8
+		check("forceHatch = 8 : sans effet hors Studio (production : IsStudio() = false), actif en Studio", C.debugForceTier(false) == nil and C.debugForceTier(nil) == nil and C.debugForceTier(true) == 8)
+		local bad = true
+		for _, v in ipairs({ 0, 11, 2.5, -1, 0 / 0, math.huge, "8", true }) do
+			C.Debug.forceHatch = v
+			if C.debugForceTier(true) ~= nil then
+				bad = false
+			end
+		end
+		check("forceHatch invalide (0, 11, 2,5, -1, NaN, inf, chaîne, booléen) : ignoré", bad)
+		local tags = C.allEventTags()
+		check("Avec forceHatch, toutes les fenêtres d'événement ouvertes (halloween, noel, saison1) pour tester l'Exclusif", tags.halloween == true and tags.noel == true and tags.saison1 == true)
+		-- tirage normal inchangé : deux Config (défaut / forceHatch posé) donnent EXACTEMENT les mêmes tirages hors Studio (le crochet n'est pas dans Rules)
+		local C1, C2 = realConfig(), realConfig()
+		C2.Debug.forceHatch = 10
+		local R1 = load("roblox/src/ServerScriptService/Rules.lua", "Rules").new(C1)
+		local R2 = load("roblox/src/ServerScriptService/Rules.lua", "Rules").new(C2)
+		local a, b = 4242, 4242
+		local function g1() a = (a * 48271) % 2147483647 return (a - 1) / 2147483646 end
+		local function g2() b = (b * 48271) % 2147483647 return (b - 1) / 2147483646 end
+		local same = true
+		for k = 1, 5000 do
+			local egg = (k % 10) + 1
+			local t1 = C1.debugForceTier(false) or egg
+			local t2 = C2.debugForceTier(false) or egg
+			local x, y = R1.rollPet(t1, 15, false, g1, false, nil), R2.rollPet(t2, 15, false, g2, false, nil)
+			if t1 ~= t2 or x.p ~= y.p or x.s ~= y.s or x.m ~= y.m or x.tier ~= y.tier then
+				same = false
+			end
+		end
+		check("Tirage normal inchangé : 5 000 éclosions identiques avec et sans forceHatch hors Studio", same)
+		-- en Studio : chaque rareté publiée sort bien de l'œuf imposé (Secret r8 et Divin r10 compris)
+		local okAll = true
+		for t = 1, 10 do
+			C2.Debug.forceHatch = t
+			local ft = C2.debugForceTier(true)
+			if ft ~= t then
+				okAll = false
+			else
+				for _ = 1, 50 do
+					local r = R2.rollPet(ft, 0, false, g2, false, C2.allEventTags())
+					if r.tier ~= t then
+						okAll = false
+					end
+				end
+			end
+		end
+		check("Studio : forceHatch = r donne toujours la rareté r (1 à 10, Exclusif compris)", okAll)
+		local main = fs.readFile("roblox/src/ServerScriptService/Main.server.lua")
+		check("Main : le crochet n'est lu qu'avec RunService:IsStudio() (éclosion et fenêtres)", select(2, main:gsub("Config%.debugForceTier%(RunService:IsStudio%(%)%)", "")) == 2 and main:find("debugForceTier%(true%)") == nil)
+	end)()
 end

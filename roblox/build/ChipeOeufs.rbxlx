@@ -1942,7 +1942,28 @@ Config.VFX = { quality = nil }
 Config.Culling = { enabled = true, cullAt = 170, showAt = 140, interval = 1, batch = 150, refresh = 20 }
 
 -- Diagnostic des modèles Blender : petit « Blender N/M » en bas à gauche (hub et partie) et rapport complet par F3. À repasser à false après le test.
-Config.Debug = { AssetReport = true }
+-- A9 : forceHatch = rareté (1 à 10) imposée à CHAQUE éclosion, pour voir les 10 animations et les espèces Secret / Exclusif / Divin dans Studio
+-- (acceptation du lot 10, test 3 du lot 11). DÉSACTIVÉ par défaut (false) et SANS EFFET en production : le serveur ne le lit qu'avec
+-- RunService:IsStudio() (Config.debugForceTier). Avec lui, toutes les fenêtres d'espèces d'événement sont ouvertes (A5) pour tester l'Exclusif.
+Config.Debug = { AssetReport = true, forceHatch = false }
+-- Rareté imposée par Debug.forceHatch, ou nil : seulement si isStudio == true et si la valeur est une rareté publiée (entier 1..TIER_COUNT).
+function Config.debugForceTier(isStudio)
+	local f = type(Config.Debug) == "table" and Config.Debug.forceHatch or nil
+	if isStudio ~= true or type(f) ~= "number" or f ~= f or f % 1 ~= 0 or f < 1 or f > Config.TIER_COUNT or not Config.tierLive(f) then
+		return nil
+	end
+	return f
+end
+-- Toutes les étiquettes d'espèces d'événement / de saison du bestiaire ({ [étiquette] = true }) : fenêtres ouvertes de Debug.forceHatch.
+function Config.allEventTags()
+	local out = {}
+	for _, p in ipairs(Config.PETS) do
+		if type(p.event) == "string" then
+			out[p.event] = true
+		end
+	end
+	return out
+end
 
 -- Mini-carte (coin droit) : activable par le bouton 🗺 ; `radius` studs du centre au bord, `size` pixels, `hz` mises à jour par seconde (faible : mobile).
 Config.MINIMAP = { enabled = true, radius = 260, size = 112, sizeSmall = 84, hz = 4, guardRange = 90, maxDots = 24 }
@@ -17927,7 +17948,7 @@ end
 local function rollPet(s, eggTier, guaranteed)
 	local up = Config.effectiveUp(eggTier, luckPoints(s), Config.dexTopTier(s.data.dex)) -- lot 9 : pas d'amélioration vers une rareté jamais découverte
 	local alien = evKey() == "alien"
-	local open = Lot7.L16.openEv(os.time()) -- A5 : espèces d'événement / de saison seulement dans leur fenêtre
+	local open = Config.debugForceTier(RunService:IsStudio()) and Config.allEventTags() or Lot7.L16.openEv(os.time()) -- A5 : espèces d'événement / de saison seulement dans leur fenêtre (A9 : toutes, Studio seulement)
 	local pet = Rules.rollPet(eggTier, up, alien, rnd, guaranteed, open)
 	pet.p = L15.Rewards.featuredPick(Config, L15.Rewards.rotation(Config, L15.Rewards.weekOf(os.time() // 86400)), pet.p, rnd) -- lot 15 : espèce vedette de la semaine (poids x2)
 	return pet, up, alien, open
@@ -18675,12 +18696,13 @@ function hatch(s, i)
 	if not sl or sl.k ~= "e" then
 		return
 	end
-	local guaranteed = Config.PITY_ENABLED and sl.t <= Config.UPGRADE.maxEggTier and d.pity >= Config.PITY_EVERY - 1
-	local p, upPoints, alienBoost, open = rollPet(s, sl.t, guaranteed)
-	local oneIn = Reveal.oneIn(Config, Rules, sl.t, upPoints, alienBoost, p.p, p.s, p.m, guaranteed, open)
-	if p.tier > sl.t then
+	local eggT = Config.debugForceTier(RunService:IsStudio()) or sl.t -- A9 : Config.Debug.forceHatch, Studio seulement (nil en production)
+	local guaranteed = Config.PITY_ENABLED and eggT <= Config.UPGRADE.maxEggTier and d.pity >= Config.PITY_EVERY - 1
+	local p, upPoints, alienBoost, open = rollPet(s, eggT, guaranteed)
+	local oneIn = Reveal.oneIn(Config, Rules, eggT, upPoints, alienBoost, p.p, p.s, p.m, guaranteed, open)
+	if p.tier > eggT then
 		d.pity = 0
-	elseif sl.t <= Config.UPGRADE.maxEggTier then
+	elseif eggT <= Config.UPGRADE.maxEggTier then
 		d.pity += 1
 	end
 	local firstOfTier = true -- lot 9 (mesure) : première fois que cette rareté est obtenue ?
@@ -18753,7 +18775,7 @@ function hatch(s, i)
 			game:GetService("Debris"):AddItem(hl, Config.AURA.seconds)
 		end
 	end
-	RHatch:FireClient(s.player, { p = p.p, s = p.s, m = p.m, slot = i, inc = Config.petIncome(p.p, p.s, p.m) * gmult(s), oneIn = oneIn < math.huge and oneIn or 0, egg = sl.t, upgraded = p.tier > sl.t, o = odds, first = firstOfTier })
+	RHatch:FireClient(s.player, { p = p.p, s = p.s, m = p.m, slot = i, inc = Config.petIncome(p.p, p.s, p.m) * gmult(s), oneIn = oneIn < math.huge and oneIn or 0, egg = eggT, upgraded = p.tier > eggT, o = odds, first = firstOfTier })
 	Lot7.oddsAnnounce(s, i, def, p, odds, oddsFx)
 	sync(s)
 end
