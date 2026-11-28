@@ -61,3 +61,7 @@ Reste : lot 14 (classé en direct, préparé, PvpLive.enabled = false partout). 
 ## Lots 13 et 14 publiés (privé) — 2026-11-27
 Commit fa4e42b « Lot 14 intégré » (contient lot 13 + récompense palier 1500 : 1 œuf Mythique + potion 30 min, décision de la gestion). Classé en direct DÉSACTIVÉ (PvpLive.enabled = false, seuil 60 joueurs). Vérifié : Lune 4213/0, run_tests code 0, check.py aucun problème, builds Rojo. En ligne : partie v45 / hub v52 (privé). Non testé dans Studio.
 Reste : tests en Studio (plus tard), puis vignettes, textes Creator Hub.
+
+## Commit b886bda publié (privé) — 2026-11-28
+Contient : vitrine désactivée par défaut (œufs achetés exclus), halos et bulles des œufs, effets d'éclosion lisibles, style d'interface commun, musique par zone (muette, sans pistes), interface « Évoluer » (désactivée), combat (états, écran Changer, flash du spécial, sons, Fuir à 1 appui hors duel/classé). Vérifié : Lune 4978/0, run_tests code 0, check.py aucun problème, builds Rojo. En ligne : partie v50 / hub v57 (privé). Non testé dans Studio.
+Reste (mises à jour ultérieures) : XP de fin de combat (champ serveur), ids musique approuvés, activation évolution après test Studio, style mobs (BLENDER_REQUESTS), Lune sur b886bda, tests Studio (A_FAIRE).
