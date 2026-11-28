@@ -130,6 +130,12 @@ Clés : vendor.eggs/luck/coins/base/combat/pass/packs/cosmetics = vendor_eggs/ve
 Écarts : tous 6,4 de large (6,5 Gaston, 6,5 Maître), profondeur 5,3 à 5,7, hauteur 8,1 (≤ 40 pièces : eggs 39, luck 38, coins 38, base 37, combat 39, pass 40, packs 39, cosmetics 39). Origine au centre de l'étal, pieds à z=0, devant = -Y. Comptoir y -3..0 (haut à z 1,7), personnage derrière (y=+0,9, ~5 de haut, pas de jambes : cachées par le comptoir). `Etiquette` = planche crème 4×1,2, face plane à y=-3,08, centre z=6,2 (cadre Cadre_etiquette autour). `Lueur` = lanterne néon ovale posée sur la planche (z≈7,55). Cristaux = boule de cristal de Madame Chance. Maître de saison : panneau de paliers (Panneau, 6 Palier) derrière lui, étendard étoilé à gauche (x≈-3,2). Aldo : boucliers devant le comptoir (z<1,5, y≈-3,1, dépassent la façade). Modèles les plus faibles : Stylo (accessoires petits et peu lisibles à distance), Gaston (maquettes petites).
 
 
+## Lot 31 (4 créatures manquantes de combat, tous APPROUVÉS ; agent Sonnet) : scripts/blender_make_pets_p6.py
+pet_kraken 120506386102959; pet_calmar_stellaire 125759020682965; pet_tigre 89148298323560; pet_wyrm_astral 122667218219421
+Clés : Bestiary « Tigre », « Kraken », « Calmar stellaire », « Wyrm astral » = model pet_tigre, pet_kraken, pet_calmar_stellaire, pet_wyrm_astral (minuscules). Hauteur normalisée ~1 (Config.petHeight = 3 les met à l'échelle).
+Écarts : Tigre 35 pièces, Kraken 35 (8 tentacules en 2 segments + articulation, hauteur 1,03), Calmar 28, Wyrm 37 (assis, ailes en disques fins comme le Dragon céleste). Couleurs du Bestiary : F58C28, 8C46BE, 3CBEC8, 50A0FF. Pas de Neon ni Metal ; Wyrm sans Machoire. Une seule correction faite (queue du tigre, tentacules du kraken) : tentacules du kraken encore un peu raides.
+
+
 ## Achats du lot 16 créés le 2026-11-26 (Chipe-Œufs, univers 10776613087 ; prix ≥ 799 confirmés par l'utilisateur)
 | type | clé | id | prix |
 |---|---|---|---|
