@@ -8,6 +8,10 @@ Les cases sont à cocher au fur et à mesure.
 
 - [ ] **À vérifier dans Studio / sur téléphone** : (1) l'image d'accroche s'affiche (le Decal 140180423430231 doit être approuvé et chargeable par la place ; sinon seul le fond bleu nuit et la barre s'affichent, sans erreur) ; (2) téléphone en portrait (titre entier, bandes bleu nuit autour) et en paysage (plein écran) ; (3) texte « Chargement des œufs… » lisible à 360 px de large ; (4) durée : au moins 2 s, jamais plus de 25 s ; (5) disparition en fondu au premier spawn du personnage, rien ne reste à l'écran ; (6) même chose dans le hub et dans la partie. Dis-moi si l'image est rognée de façon gênante sur un écran donné.
 
+## 0bis. Mobs (« Fais les mobs », 2026-11-28) : rien n'a été vu dans Studio
+
+- [ ] **Combat avec les modèles du monde** : lance un combat de la tour avec un pet qui a un modèle Blender (ex. Chat, Chien). (1) La sortie serveur affiche `[Assets] pets publiés pour le combat : N (refusés, plus de 40 Parts : M)` ; note N et M (un modèle historique de plus de 40 Parts garde la créature procédurale en combat : dis-moi lesquels). (2) Dans le combat, la créature est le MÊME modèle que le pet de ta base (pas une boule), posée sur le socle, tournée vers l'adversaire, ni trop grande ni enfoncée dans le socle ; elle sautille, se jette en avant, recule et clignote en blanc quand elle est touchée. (3) Changer de pet : l'ancien descend, le nouveau tombe sur le socle, jamais deux créatures sur le même socle. (4) Après 5 ou 6 combats d'affilée, aucune créature ne reste à l'écran, pas de ralentissement. (5) Avant la publication (premières secondes après l'arrivée), le combat montre la créature procédurale : normal.
+
 ## 1. Autoriser les outils de vérification (optionnel, 2 minutes)
 
 Quatre outils sont téléchargés mais l'exécution est refusée par l'autorisation de la session. Au choix :

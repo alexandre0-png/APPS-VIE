@@ -1,6 +1,7 @@
 -- ModuleScript : StarterPlayerScripts/BattleScene   (refonte de la présentation du combat, vue face à face)
 -- Construit l'écran de combat : une scène 3D dans un ViewportFrame (fond de ciel, sol de sable ou d'herbe, décor en arc, deux socles circulaires lumineux, une créature
--- procédurale par camp, caméra fixe en léger angle), la carte de l'adversaire (haut à droite : nom, niveau, barre de PV verte, points d'état de l'équipe), la carte du
+-- par camp : copie du modèle Blender du pet publiée par le serveur dans ReplicatedStorage.PetModels si elle tient dans le budget, sinon créature procédurale ;
+-- caméra fixe en léger angle), la carte de l'adversaire (haut à droite : nom, niveau, barre de PV verte, points d'état de l'équipe), la carte du
 -- joueur (bas à gauche : nom, niveau, PV chiffrés, points d'état, pastilles de charge), le bandeau de journal (bas) et les boutons d'action (bas à droite : Attaque,
 -- Spécial n/5, Changer, Fuir). TOUTE la disposition vient du module pur ReplicatedStorage/BattleLayout (testé) ; ici : uniquement des instances.
 -- Le client N'ENVOIE QU'UNE INTENTION (« attack », « skill », « swapN », abandon) : le serveur revalide tout, rien ne change dans le protocole.
@@ -379,12 +380,85 @@ function BattleScene.create(o)
 			end
 			return CFrame.lookAt(Vector3.new(from.x, y, from.z), Vector3.new(to.x, y, to.z))
 		end
+		-- Modèle Blender du pet (mobs, étape 1) : copie légère publiée par le serveur dans ReplicatedStorage.PetModels (ou o.petModels, tests), clonée,
+		-- comptée dans le plafond (Model + descendants), mise à la hauteur de combat (BattleLayout.modelHeight), pivot au centre posé sur le socle.
+		-- Nil (repli procédural) si absent, trop lourd, hors budget ou illisible.
+		local function modelPuppet(side, u, def, sizeScale)
+			if type(L.modelFits) ~= "function" then
+				return nil
+			end
+			local made = nil
+			local ok, res = pcall(function()
+				local folder = o.petModels
+				if folder == nil then
+					folder = game:GetService("ReplicatedStorage"):FindFirstChild("PetModels")
+				end
+				local tpl = folder and folder:FindFirstChild(tostring(u.p))
+				if tpl == nil then
+					return nil
+				end
+				local n = #tpl:GetDescendants() + 1
+				if not L.modelFits(n, S.used, cap) then
+					return nil
+				end
+				local model = tpl:Clone()
+				made = model
+				local target = L.modelHeight(def.tier, sizeScale, Config.petTargetHeight, Config.TIER_COUNT)
+				local f = L.modelScale(model:GetExtentsSize().Y, target)
+				if f == nil then
+					return nil
+				end
+				model:ScaleTo(model:GetScale() * f)
+				local body, best = nil, -1
+				for _, d in ipairs(model:GetDescendants()) do
+					if d:IsA("BasePart") then
+						d.Anchored, d.CanCollide = true, false
+						local okV, v = pcall(function()
+							return d.Size.X * d.Size.Y * d.Size.Z
+						end)
+						if okV and type(v) == "number" and v > best then
+							body, best = d, v
+						end
+					end
+				end
+				if body == nil then
+					return nil
+				end
+				model.Name = "Puppet" .. side
+				model:SetAttribute("Source", "model")
+				local lift = 0.9 + target / 2
+				local base = S.faceCF(side, lift)
+				model:PivotTo(base)
+				local color = body.Color
+				model.Parent = vp
+				S.used = S.used + n
+				if S.used > S.peak then
+					S.peak = S.used
+				end
+				made = nil
+				return { model = model, body = body, base = base, lift = lift, count = n, busy = 0, color = color, source = "model" }
+			end)
+			if made ~= nil then -- refusé ou erreur après la copie : la copie (jamais comptée) est détruite
+				pcall(function()
+					made:Destroy()
+				end)
+			end
+			if ok then
+				return res
+			end
+			return nil
+		end
+		S.modelPuppet = modelPuppet
 		local function buildPuppet(side, u)
 			local def = Config.PETS[u.p] or { color = Color3.fromRGB(200, 200, 200), ears = "round", extra = "none" }
 			local scale = 1
 			local sz = Config.SIZES and Config.SIZES[u.s]
 			if sz and type(sz.scale) == "number" then
 				scale = math.max(0.8, math.min(1.4, sz.scale))
+			end
+			local fromModel = modelPuppet(side, u, def, sz and sz.scale)
+			if fromModel then
+				return fromModel
 			end
 			local R = 1.5 * scale
 			local before = S.used
@@ -424,7 +498,7 @@ function BattleScene.create(o)
 			end
 			local base = S.faceCF(side, lift)
 			model:PivotTo(base)
-			return { model = model, body = body, base = base, lift = lift, count = S.used - before, busy = 0, color = col }
+			return { model = model, body = body, base = base, lift = lift, count = S.used - before, busy = 0, color = col, source = "procedural" }
 		end
 		local function destroyPuppet(pz)
 			if pz and pz.model then
@@ -437,9 +511,10 @@ function BattleScene.create(o)
 		S.destroyPuppet = destroyPuppet
 		function S.setPuppet(side, u, animateIn)
 			local old = S.puppets[side]
+			S.puppets[side] = nil
+			destroyPuppet(old) -- l'ancienne créature part AVANT la construction (jamais trois créatures en même temps : budget libéré pour un modèle)
 			local newp = buildPuppet(side, u)
 			S.puppets[side] = newp
-			destroyPuppet(old)
 			if animateIn then
 				newp.busy = newp.busy + 1
 				animate(0.3, function(a)

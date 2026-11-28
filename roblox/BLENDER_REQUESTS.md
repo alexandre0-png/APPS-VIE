@@ -87,7 +87,10 @@ Non repris par `Decor.lua` : lots 18 et 19 (intérieurs de maison, autre mission
 
 Base : lecture de `Builder.lua`, `Scenery.lua`, `Castle.lua`, `BattleScene.lua`, `Client.client.lua`, `Config.lua`, `CHANGELOG.md`, ce fichier. Je n'ai vu aucune image : les contrastes sont déduits des formes, matières et couleurs écrites dans le code, pas jugés à l'œil. Aucun test de « galerie » de mobs n'existe dans `tests/` ni dans les outils (recherche faite) : rien n'est vérifié automatiquement sur la cohérence de style des monstres. Aucun identifiant nouveau, aucun code de jeu modifié.
 
-### Inventaire factuel (comment chaque mob est construit aujourd'hui)
+### État après « Fais les mobs » (2026-11-28, rien vu dans Studio)
+- **Créatures de combat** : le combat clone désormais le MÊME modèle Blender que le monde (copie légère publiée par le serveur dans `ReplicatedStorage.PetModels`, au plus 40 Parts, `Builder.exportPets`) ; repli procédural si absent, trop lourd ou hors budget. Le gabarit `combat.puppet` demandé plus bas n'est donc plus nécessaire tant que les modèles de pets tiennent sous 40 Parts.
+
+### Inventaire factuel (comment chaque mob est construit aujourd'hui, au commit e0e97d6 ; voir l'état ci-dessus pour ce qui a changé)
 
 | Mob | Où | Construction aujourd'hui | Repli | Remarques de style |
 |---|---|---|---|---|

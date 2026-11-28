@@ -11462,6 +11462,15 @@ end)()
 end)()
 
 ;(function()
+	-- « Fais les mobs » : combat avec les modèles du monde (PetModels), replis des gardiens / du chevalier / des pets, ids du lot 31 ; aussi lançable seule par tests/run_mobs.py
+	local mobs = luau.load(fs.readFile("roblox/tests/mobs.luau"), { debugName = "mobs" })()
+	mobs({ check = check, suite = suite, luau = luau, fs = fs, newRuntime = function(opts)
+		opts.hook = opts.hook or loopGuard
+		return newRuntime(opts)
+	end })
+end)()
+
+;(function()
 	-- Lot 11 : bestiaire de 78 espèces (Bestiary, types et compétences, modèles Blender, collection, repli procédural), aussi lançable seul par tests/run_lot11.py
 	local lot11 = luau.load(fs.readFile("roblox/tests/lot11.luau"), { debugName = "lot11" })()
 	lot11({ check = check, suite = suite, luau = luau, fs = fs, newRuntime = function(opts)

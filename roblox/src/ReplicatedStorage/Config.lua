@@ -904,6 +904,7 @@ Config.Assets = {
 	-- Lot 9 : modèles des 60 nouvelles espèces (numéro C.2 -> identifiant), branchés au lot 11 ; plafond de Parts propre.
 	petsNew = {},
 	petsMaxPartsNew = 40,
+	combatMaxParts = 40, -- mobs étape 1 : plafond de Parts de la copie publiée pour le combat (ReplicatedStorage.PetModels) ; au-delà, repli procédural du combat
 	petsMaxParts = 120, -- plafond de Parts d'un modèle de pet (cloné pour chaque pet affiché)
 	petHeight = 3, -- (les pets Blender mesurent ~1 : mis à l'échelle sur cette hauteur) -- hauteur en studs d'un pet de taille « Normal » (multipliée par l'échelle de taille)
 	eggByTier = { "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10" },

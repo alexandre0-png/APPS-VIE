@@ -960,6 +960,53 @@ BattleLayout.COST = {
 }
 BattleLayout.MAX_POPUPS = 6
 
+---------------------------------------------------------------- modèles Blender des pets en combat (mobs, étape 1)
+-- Le combat clone la copie légère publiée par le serveur (ReplicatedStorage.PetModels, au plus 40 Parts). Le plan ci-dessus reste calculé pour la créature
+-- procédurale (COST.puppet) : un modèle n'est posé que s'il tient dans ce qui RESTE sous le plafond à cet instant, réserve gardée pour ce qui peut encore
+-- apparaître (étiquettes flottantes, écran « Changer » complet, info-bulle, flash du spécial) ; sinon, repli procédural.
+BattleLayout.MODEL_MAX_INSTANCES = 48 -- instances d'un modèle cloné (Model + 40 Parts + quelques maillages)
+BattleLayout.MODEL_RESERVE = BattleLayout.MAX_POPUPS * BattleLayout.COST.popup + BattleLayout.COST.swapPanel + BattleLayout.MAX_DOTS * BattleLayout.COST.swapRow + BattleLayout.COST.tip + BattleLayout.COST.flash
+BattleLayout.MODEL_K = 3 / 1.7 -- hauteur de combat = hauteur au monde (Config.petTargetHeight) x MODEL_K : un pet Commun « Normal » mesure 3 studs, comme la créature procédurale
+BattleLayout.MODEL_MIN_H = 2.2
+BattleLayout.MODEL_MAX_H = 4.5 -- jamais plus large que le socle
+
+-- Vrai si un modèle de `n` instances peut être posé : n valide, n <= MODEL_MAX_INSTANCES et used + n + MODEL_RESERVE <= cap.
+function BattleLayout.modelFits(n, used, cap)
+	if not (isNum(n) and isNum(used) and isNum(cap)) or n < 1 then
+		return false
+	end
+	return n <= BattleLayout.MODEL_MAX_INSTANCES and used + n + BattleLayout.MODEL_RESERVE <= cap
+end
+
+-- Hauteur de combat (studs) du modèle d'un pet : même règle que le monde (rareté, échelle de taille bornée 0,8 à 1,4 comme la créature procédurale),
+-- x MODEL_K, bornée [MODEL_MIN_H, MODEL_MAX_H]. `targetHeight` = Config.petTargetHeight (absente : 1,7 à 2,5 selon la rareté sur 10).
+function BattleLayout.modelHeight(tier, sizeScale, targetHeight, tierCount)
+	local s = isNum(sizeScale) and clamp(sizeScale, 0.8, 1.4) or 1
+	local h
+	if type(targetHeight) == "function" then
+		local ok, v = pcall(targetHeight, tier, s)
+		h = (ok and isNum(v) and v > 0) and v or nil
+	end
+	if h == nil then
+		local n = isNum(tierCount) and tierCount > 1 and tierCount or 10
+		local t = isNum(tier) and clamp(tier, 1, n) or 1
+		h = (1.7 + 0.8 * (t - 1) / (n - 1)) * s
+	end
+	return clamp(h * BattleLayout.MODEL_K, BattleLayout.MODEL_MIN_H, BattleLayout.MODEL_MAX_H)
+end
+
+-- Facteur d'échelle pour passer de la hauteur mesurée `measured` à `target`, ou nil si la mesure est absurde (le combat garde alors le repli).
+function BattleLayout.modelScale(measured, target)
+	if not (isNum(measured) and isNum(target)) or measured < 0.05 or target <= 0 then
+		return nil
+	end
+	local f = target / measured
+	if f < 0.02 or f > 100 then
+		return nil
+	end
+	return f
+end
+
 -- Plan de la scène selon l'appareil : { pillars, beams, bob, decor, estimate }. `reduced` (mobile) : moitié du décor, ni faisceaux ni balancement.
 -- Le décor (piliers ou touffes) est réduit jusqu'à tenir sous MAX_INSTANCES, avec une marge de 20 instances pour les remplacements de créature.
 function BattleLayout.plan(opts)

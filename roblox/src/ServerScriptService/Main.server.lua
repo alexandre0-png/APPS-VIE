@@ -135,6 +135,8 @@ task.spawn(function()
 	if onAssetsLoaded then
 		pcall(onAssetsLoaded) -- base et pads déjà affichés : reconstruits avec les modèles arrivés
 	end
+	local petPub, petRefused = Builder.exportPets(assets) -- mobs étape 1 : modèles des pets publiés pour le combat (ReplicatedStorage.PetModels)
+	print(("[Assets] pets publiés pour le combat : %d (refusés, plus de %d Parts : %d)"):format(petPub, Config.Assets.combatMaxParts or 40, petRefused))
 	local propParts, propCount = Builder.dressWorld(assets)
 	print("[Assets] accessoires Blender : " .. propCount .. " posés (" .. propParts .. " Parts)")
 	assets.loadGroup("guards")

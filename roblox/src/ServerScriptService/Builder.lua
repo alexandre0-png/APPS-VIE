@@ -1114,6 +1114,75 @@ function Builder.exportVfx(assets)
 	return n
 end
 
+-- Mobs, étape 1 : publie une copie LÉGÈRE du modèle Blender de chaque pet chargé (même choix que Builder.pet : assets.clonePet, Config.Assets.pets
+-- prioritaire sur petsNew) dans ReplicatedStorage.PetModels (nom = indice d'espèce) : le combat (client, BattleScene) la clone dans son ViewportFrame,
+-- un client ne pouvant pas charger d'assets lui-même. Copie : seulement Parts / maillages, ancrée, sans collision ni requête, sans ombre, pivot au
+-- centre de la boîte englobante (orientation de la première pièce, comme au monde), au plus Config.Assets.combatMaxParts (40) Parts (sinon non publié :
+-- repli procédural du combat). Attributs : Parts, Tier. Retourne (publiés, refusés). Ne lève jamais d'erreur ; un id ajouté à Config.Assets.pets est
+-- pris en compte sans autre changement (chargé par Assets.loadPets, publié ici).
+function Builder.lightPetCopy(clone, maxParts)
+	local ok, res = pcall(function()
+		local drop, parts, first = {}, 0, nil
+		for _, d in ipairs(clone:GetDescendants()) do
+			if d:IsA("BasePart") then
+				parts = parts + 1
+				first = first or d
+				d.Anchored, d.CanCollide, d.CanQuery, d.CanTouch, d.CastShadow = true, false, false, false, false
+			elseif not (d:IsA("DataModelMesh") or d:IsA("Model")) then
+				drop[#drop + 1] = d
+			end
+		end
+		if parts == 0 or parts > maxParts then
+			error("parts " .. parts)
+		end
+		for _, d in ipairs(drop) do
+			pcall(function()
+				d:Destroy()
+			end)
+		end
+		local rot = first.CFrame - first.CFrame.Position
+		local box = clone:GetBoundingBox()
+		clone.PrimaryPart = nil
+		clone.WorldPivot = CFrame.new(box.Position) * rot
+		clone:SetAttribute("Parts", parts)
+		return parts
+	end)
+	return ok, res
+end
+
+function Builder.exportPets(assets)
+	local n, refused = 0, 0
+	pcall(function()
+		local RS = game:GetService("ReplicatedStorage")
+		local folder = RS:FindFirstChild("PetModels") or Instance.new("Folder")
+		folder.Name = "PetModels"
+		local cap = Config.Assets.combatMaxParts or 40
+		for idx = 1, #Config.PETS do
+			local clone = assets.clonePet and assets.clonePet(idx)
+			if clone then
+				local ok = clone:IsA("Model") and Builder.lightPetCopy(clone, cap)
+				if ok then
+					local old = folder:FindFirstChild(tostring(idx))
+					if old then
+						old:Destroy()
+					end
+					clone.Name = tostring(idx)
+					clone:SetAttribute("Tier", Config.PETS[idx].tier)
+					clone.Parent = folder
+					n = n + 1
+				else
+					refused = refused + 1
+					pcall(function()
+						clone:Destroy()
+					end)
+				end
+			end
+		end
+		folder.Parent = RS
+	end)
+	return n, refused
+end
+
 -- Maison évolutive (REFONTE lot 5, D) : le niveau N remplace l'enclos par une maison (repère local de la base : façade -Z tournée vers la place, arrière +Z).
 -- Niveau 1 : enclos de bois (modèle base.level1 ou rails procéduraux) ; niveaux 2 à 7 : modèles Blender house.l2..l7 (largeur = emprise du niveau - 4, bâtiment
 -- à l'ARRIÈRE de la plateforme, façade vers la place) ou, à défaut, une maison procédurale simple ; niveau 8 : base.level8. La plateforme grandit avec le niveau
