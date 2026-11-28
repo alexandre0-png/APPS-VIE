@@ -1,0 +1,11 @@
+--- a/roblox/src/ReplicatedStorage/Config.lua	2026-11-27 00:36:24.154766781 +0000
++++ b/roblox/src/ReplicatedStorage/Config.lua	2026-11-27 05:49:44.361236992 +0000
+@@ -2420,7 +2420,7 @@
+ 
+ -- Astuces de défaite : type de l'équipe adverse -> type qui le bat. VALEURS PAR DÉFAUT : l'intégrateur peut les remplacer par une lecture de la matrice D.2 de Battle
+ -- (Npc.tip accepte une table `weak` en argument).
+-Config.TYPE_WEAK = { Feu = "Eau", Eau = "Foudre", Plante = "Feu", Glace = "Feu", Foudre = "Terre", Terre = "Plante", Ciel = "Foudre", Ombre = "Lumière", ["Lumière"] = "Ombre" }
++Config.TYPE_WEAK = { Feu = "Eau", Eau = "Plante", Plante = "Feu", Glace = "Foudre", Foudre = "Terre", Terre = "Glace", Ciel = "Ombre", Ombre = "Lumière", ["Lumière"] = "Ciel" } -- LOT 12A : le type qui BAT chacun (BEATS primaire de Battle.lua, x1,5) ; l'ancienne table contredisait la matrice D.2
+ 
+ ---------------------------------------------------------------- G.1 Série de 7 jours
+ -- eggs : noms de raretés ; c : minutes de revenu (min coinFloor) ; luck = potion de chance { minutes, points } ; boost = { key, mul, minutes } ; fragments : Fragments du Grand Œuf.

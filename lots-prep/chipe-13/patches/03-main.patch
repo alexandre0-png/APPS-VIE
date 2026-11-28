@@ -1,0 +1,130 @@
+--- a/roblox/src/ServerScriptService/Main.server.lua
++++ b/roblox/src/ServerScriptService/Main.server.lua
+@@ -5347,6 +5347,127 @@
+ 	end)
+ end
+ 
++---------------------------------------------------------------- Duel local (lot 13, E.2) : défis, forfait, récompenses ; AUCUN trophée
++-- Les règles sont dans ReplicatedStorage/Duel.lua (pur, testé). Ce bloc ne fait que lire l'état des joueurs et appliquer les décisions.
++-- À COMPLÉTER à l'intégration (voir README « Brancher ») : placement sur le sable, caméra, spectateurs, boucle de tours avec Battle.turn, UI client « duelAsk ».
++local Duel = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Duel"))
++local duelBook = Duel.newBook()
++local duelMatches = {} -- [duelId] = { m = match, a = sessionA, b = sessionB }
++local DUEL_REFUSE = {
++	self = "⚔️ Tu ne peux pas te défier toi-même.", range = "⚔️ Trop loin pour un duel.", egg = "⚔️ Pas de duel avec un œuf dans les mains.", chased = "⚔️ Pas de duel pendant une poursuite.",
++	dialogue = "⚔️ Un dialogue est en cours.", castle = "⚔️ Pas de duel en mode Château.", newbie = "⚔️ Protection débutant : désactive-la pour combattre.", busy = "⚔️ Un combat est déjà en cours.",
++	cooldown = "⚔️ Tu as déjà défié ce joueur : attends un peu.", pendingOut = "⚔️ Ton défi précédent est encore en attente.", crowded = "⚔️ Ce joueur a déjà plusieurs défis.",
++}
++local function duelFlags(s)
++	local root = getRoot(s.player)
++	local c = root and L15.ctx(s, root) or {}
++	return {
++		userId = s.player.UserId, carryingEgg = c.carrying == true or #s.carry > 0, chased = c.chased == true, inDialogue = c.pending == true,
++		inCastle = c.inCastle == true or s.castle ~= nil or serverMode == "castle", newbie = isNewbie(s), busy = s.battle ~= nil or s.pvpPending == true,
++	}
++end
++local function duelCtx(s, t)
++	local r1, r2 = getRoot(s.player), getRoot(t.player)
++	if not r1 or not r2 then
++		return nil
++	end
++	return { a = duelFlags(s), b = duelFlags(t), distance = (r1.Position - r2.Position).Magnitude }
++end
++
++function actions.duelChallenge(s, arg) -- arg = userId du joueur défié (nombre)
++	if type(arg) ~= "number" or arg ~= arg or arg % 1 ~= 0 then
++		return
++	end
++	local target = Players:GetPlayerByUserId(arg)
++	local t = target and sessions[target]
++	if not t or t == s then
++		return
++	end
++	local ctx = duelCtx(s, t)
++	if not ctx then
++		return
++	end
++	local ok, why = Duel.request(duelBook, ctx, os.clock(), Config.DUEL)
++	if not ok then
++		notify(s.player, DUEL_REFUSE[why] or DUEL_REFUSE.busy, "refuse")
++		return
++	end
++	RBattle:FireClient(target, { k = "duelAsk", from = s.player.DisplayName, fromId = s.player.UserId, seconds = Config.DUEL.requestTimeout })
++end
++
++function actions.duelAnswer(s, arg) -- arg = { from = userId, accept = bool }
++	if type(arg) ~= "table" or type(arg.from) ~= "number" or arg.from ~= arg.from then
++		return
++	end
++	local fromPlayer = Players:GetPlayerByUserId(arg.from)
++	local f = fromPlayer and sessions[fromPlayer]
++	if not f then
++		Duel.finish(duelBook, arg.from)
++		return
++	end
++	local ok, id, cancelled = Duel.answer(duelBook, s.player.UserId, arg.from, arg.accept == true, os.clock(), Config.DUEL, duelCtx(f, s))
++	if not ok then
++		if id ~= "declined" then
++			notify(f.player, DUEL_REFUSE[id] or "⚔️ Défi annulé.", "refuse")
++		end
++		return
++	end
++	duelMatches[id] = { m = Duel.newMatch(f.player.UserId, s.player.UserId), a = f, b = s }
++	for _, c in ipairs(cancelled) do
++		local p = Players:GetPlayerByUserId(c.from)
++		if p then
++			notify(p, "⚔️ Défi annulé : ton adversaire est déjà en duel.", "refuse")
++		end
++	end
++	-- ICI : placer les deux joueurs sur le sable (±10 en X), lancer Battle.new + la boucle de tours (Config.DUEL.turnSeconds), diffuser RBattle aux spectateurs.
++end
++
++-- Appelé à chaque fin de tour (délai écoulé) avec « le joueur a-t-il choisi une action ? ». Retourne "continue" | "forfeitA" | "forfeitB" | "cancelled".
++local function duelTurnDone(id, actedA, actedB)
++	local d = duelMatches[id]
++	if not d then
++		return "cancelled"
++	end
++	return Duel.noteTurn(d.m, actedA, actedB, Config.DUEL)
++end
++
++-- Fin du duel (victoire normale, forfait, annulation, départ) : récompenses 10/jour et 3/paire, ratio V/D, aucun trophée ; libère les deux joueurs.
++-- winner = "a" | "b" | nil (nul/annulé). Les pièces sont créditées seulement si le joueur est encore présent.
++local function duelFinish(id, winner)
++	local d = duelMatches[id]
++	if not d then
++		return
++	end
++	duelMatches[id] = nil
++	d.m.over, d.m.winner = true, winner
++	local oa, ob = Duel.outcomes(d.m)
++	local pairsList = { { d.a, d.b, oa }, { d.b, d.a, ob } }
++	for _, e in ipairs(pairsList) do
++		local me, foe, outcome = e[1], e[2], e[3]
++		if sessions[me.player] == me then
++			local res = Duel.settle(me.data.battle.duel, foe.player.UserId, outcome, os.time(), income(me), Config.DUEL)
++			if res.rewarded and res.coins > 0 then
++				me.data.coins += res.coins
++			end
++			notify(me.player, (res.won and "⚔️ Duel gagné" or "⚔️ Duel perdu") .. (res.rewarded and (" : +" .. Config.fmt(res.coins) .. " 🪙") or " (amical : pas de récompense)"), res.won and "claim" or "refuse")
++		end
++	end
++	Duel.finish(duelBook, d.a.player.UserId)
++	Duel.finish(duelBook, d.b.player.UserId)
++end
++L15.duelTurnDone, L15.duelFinish = duelTurnDone, duelFinish -- points d'entrée pour la boucle de tours du serveur (à écrire à l'intégration)
++
++Players.PlayerRemoving:Connect(function(player) -- un joueur qui part : défis retirés ; duel en cours = forfait de son côté, l'autre gagne
++	for id, d in pairs(duelMatches) do
++		if d.a.player == player then
++			duelFinish(id, "b")
++		elseif d.b.player == player then
++			duelFinish(id, "a")
++		end
++	end
++	Duel.finish(duelBook, player.UserId)
++end)
++
+ Players.PlayerRemoving:Connect(function(player)
+ 	local s = sessions[player]
+ 	if not s then

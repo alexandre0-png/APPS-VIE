@@ -1,0 +1,80 @@
+--- a/roblox/src/ReplicatedStorage/Config.lua	2026-11-27 00:36:24.154766781 +0000
++++ b/roblox/src/ReplicatedStorage/Config.lua	2026-11-27 05:55:53.542301780 +0000
+@@ -154,6 +154,29 @@
+ 	{ tier = 7, emoji = "🐉", name = "Wyrm astral", inc = 20000, color = Color3.fromRGB(80, 160, 255), ears = "none", extra = "wings" },
+ }
+ 
++-- LOT 11 : bestiaire de 78 espèces (ReplicatedStorage/Bestiary.lua). Ses 18 premières entrées doivent être identiques à la liste historique ci-dessus (nom, rareté,
++-- revenu : indices stables, testé) ; sinon, ou si le module est introuvable (tests purs qui chargent Config seul), la liste de 18 reste en place.
++Config.BESTIARY = nil
++do
++	local okLoad, Bestiary = pcall(function()
++		return require(script.Parent:WaitForChild("Bestiary", 10))
++	end)
++	if okLoad and type(Bestiary) == "table" and type(Bestiary.PETS) == "table" and #Bestiary.PETS >= #Config.PETS then
++		local same = true
++		for i, d in ipairs(Config.PETS) do
++			local b = Bestiary.PETS[i]
++			if not b or b.tier ~= d.tier or b.name ~= d.name or b.inc ~= d.inc then
++				same = false
++				break
++			end
++		end
++		if same then
++			Config.PETS = Bestiary.PETS
++			Config.BESTIARY = Bestiary
++		end
++	end
++end
++
+ Config.SIZES = {
+ 	{ name = "Mini", mult = 0.8, weight = 20, scale = 0.8 },
+ 	{ name = "Normal", mult = 1, weight = 62, scale = 1 },
+@@ -548,7 +571,7 @@
+ Config.PRICING = {
+ 	ExclusiveEgg = { tier = 6, coinCost = 370000000, robuxCost = 249, where = "boutique", timeToAffordCoin = { beginner = 18440, mid = 3580, advanced = 240 } },
+ 	EggSecret = { tier = 8, coinCost = 48000000000, robuxCost = 1499, where = "tapis", timeToAffordCoin = { beginner = 129670, mid = 95790, advanced = 30480 } },
+-	EggDivine = { tier = 10, coinCost = 1080000000000, robuxCost = 6999, where = "tapis", timeToAffordCoin = { beginner = 705120, mid = 669420, advanced = 395520 } },
++	EggDivine = { tier = 10, coinCost = 1080000000000, robuxCost = 6999, where = "tapis", timeToAffordCoin = { beginner = 687360, mid = 651900, advanced = 406560 } }, -- lot 11 : recalibré (nouveau bonus de collection, plafond +80 %)
+ 	EggExclusive = { tier = 9, coinCost = nil, robuxCost = 3499, where = "jamais en pièces", timeToAffordCoin = nil },
+ }
+ function Config.timeRobux(robux)
+@@ -814,6 +837,12 @@
+ 		"Sound", "Tool", "ForceField", "Explosion", "Weld", "WeldConstraint", "Motor6D", "ManualWeld", "Motor",
+ 	},
+ }
++-- LOT 11 : modèles Blender des 60 nouvelles espèces (lots 22 à 26), indice d'espèce -> identifiant, lus dans Bestiary.ASSET_IDS (source unique). Assets.loadPets les charge avec petsMaxPartsNew.
++if Config.BESTIARY then
++	for idx, id in pairs(Config.BESTIARY.ASSET_IDS) do
++		Config.Assets.petsNew[idx] = id
++	end
++end
+ 
+ ---------------------------------------------------------------- Apparence des œufs construite par le code (repli des modèles, utilisée aussi quand ils sont coupés)
+ -- Une apparence distincte par modèle de Config.Assets.eggs : couleur, matériau, lumière, particules, halo (sphère ou anneau, qui tourne ou
+@@ -1692,7 +1721,11 @@
+ }
+ 
+ Config.COLLECTION_STEP = 3 -- tous les 3 espèces découvertes...
+-Config.COLLECTION_BONUS = 0.05 -- ...+5% de revenus permanents (max +30% avec les 18 espèces)
++Config.COLLECTION_BONUS = 0.05 -- ...+5% de revenus permanents (max +30% avec les 18 premières espèces)
++-- LOT 11 : au-delà des 18 espèces historiques, +5 % par tranche de 6 espèces supplémentaires, plafond +80 % (78 espèces). Identique à l'ancienne formule jusqu'à 18 espèces (jamais en baisse).
++Config.COLLECTION_BASE_COUNT = 18
++Config.COLLECTION_STEP2 = 6
++Config.COLLECTION_MAX = 0.8
+ -- Arène des pets (PvE) : tour des Dresseurs de 30 étages, combats d'équipes de 3 pets résolus par le serveur (moteur Battle). Tous les 5 étages : un boss.
+ Config.TOWER = { floors = 45, tiers = { 1, 2, 3, 4, 5, 6, 7, 8, 10 }, teamSize = 3, dailyFights = 20, dailyRepeats = 10, turnSeconds = 10, bosses = { [5] = "Gus", [10] = "Mara", [15] = "Zed", [20] = "Gus l'Ancien", [25] = "Mara la Nuit", [30] = "Zed le Colosse", [35] = "Reine de Cristal", [40] = "Démon enchaîné", [45] = "Séraphin" } } -- lot 9 (D.7) : 45 étages, 5 par rareté de TOWER.tiers
+ -- PvP asynchrone : l'équipe de DÉFENSE enregistrée d'un autre joueur est simulée par le serveur (aucune latence réseau). Trophées, saisons d'une semaine,
+@@ -1760,7 +1793,11 @@
+ end
+ 
+ function Config.collectionBonus(speciesCount)
+-	return 1 + Config.COLLECTION_BONUS * math.floor(speciesCount / Config.COLLECTION_STEP)
++	local n = type(speciesCount) == "number" and speciesCount == speciesCount and math.max(speciesCount, 0) or 0
++	local base = math.min(n, Config.COLLECTION_BASE_COUNT)
++	local extra = math.max(n - Config.COLLECTION_BASE_COUNT, 0)
++	local bonus = Config.COLLECTION_BONUS * (math.floor(base / Config.COLLECTION_STEP) + math.floor(extra / Config.COLLECTION_STEP2))
++	return 1 + math.min(bonus, Config.COLLECTION_MAX)
+ end
+ 
+ function Config.zoneUnlocked(chaptersDone, rival)

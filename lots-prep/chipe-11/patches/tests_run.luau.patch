@@ -1,0 +1,89 @@
+--- a/roblox/tests/run.luau	2026-11-27 00:36:24.162766782 +0000
++++ b/roblox/tests/run.luau	2026-11-27 05:59:51.901604451 +0000
+@@ -4675,6 +4675,8 @@
+ 				thresholds[i] = { score = i - 1, name = savedLevels[i].name, emoji = savedLevels[i].emoji }
+ 			end
+ 			cfg.BASE_LEVELS = thresholds -- seuils minuscules : 8 niveaux atteints en 7 éclosions
++			local roster78 = cfg.PETS
++			cfg.PETS = table.move(roster78, 1, 18, 1, {}) -- lot 11 : ce scénario suppose le roster historique (3 Communs : les doublons se revendent et libèrent les emplacements) ; avec 78 espèces peu de doublons
+ 			local b = join("Bati", 7002)
+ 			RT.step(2)
+ 			local levels, monotone, last = {}, true, b:GetAttribute("BaseLevel") or 0
+@@ -4711,6 +4713,7 @@
+ 			local rb = record(7002)
+ 			check("Base : le score atteint est sauvegardé au départ du joueur (" .. tostring(rb and rb.v and rb.v.baseScore) .. ")", rb ~= nil and rb.v ~= nil and (rb.v.baseScore or 0) >= 7)
+ 			cfg.BASE_LEVELS = savedLevels
++			cfg.PETS = roster78
+ 		end
+ 
+ 		-- 2. courses entre joueurs -----------------------------------------------------------------------------------------------
+@@ -5593,7 +5596,7 @@
+ 			return false
+ 		end
+ 		check("Inventaire : onglet Titres (20 titres, cases verrouillées « ??? »)", tab("Titres") and findText("titres. Ils se débloquent") ~= nil and findText("???") ~= nil)
+-		check("Inventaire : onglet Index (compteur x/N, espèces non obtenues grisées)", tab("Index") and findText("INDEX") ~= nil and findText("/" .. #Config.PETS) ~= nil)
++		check("Inventaire : onglet Index (compteur x/N, espèces non obtenues grisées)", tab("Index") and findText("INDEX") ~= nil and findText("/" .. #RT.require(RT.services.ReplicatedStorage:FindFirstChild("Shared"):FindFirstChild("Config")).PETS) ~= nil) -- lot 11 : la config du serveur factice compte les 78 espèces
+ 		check("Inventaire : onglet Boosts (multiplicateur, passes)", tab("Boosts") and findText("Multiplicateur de revenus") ~= nil)
+ 		check("Inventaire : onglets Œufs et Pets sans erreur" .. (#RT.errors == 0 and "" or " : " .. tostring(RT.errors[1])), tab("Œufs") and tab("Pets") and #RT.errors == 0)
+ 		RT.actions.ChipeClose(nil, RT.env.Enum.UserInputState.Begin)
+@@ -6814,7 +6817,8 @@
+ 	local B = luau.load(fs.readFile("roblox/src/ReplicatedStorage/Battle.lua"), { debugName = "Battle" })()
+ 	-- types : 3 espèces par type, chaque rareté = un triangle complet de la roue
+ 	local perType, tri = {}, true
+-	for i, t in ipairs(B.SPECIES_TYPE) do
++	for i = 1, 18 do -- lot 11 : Battle.SPECIES_TYPE compte 78 espèces ; la règle « 3 par type, triangle par rareté » ne vaut que pour les 18 historiques (tests/lot11.luau couvre les 78)
++		local t = B.SPECIES_TYPE[i]
+ 		perType[t] = (perType[t] or 0) + 1
+ 	end
+ 	for _, tier in ipairs(Config.TIER_MIGRATE) do -- lot 9 : les 6 raretés qui ont des espèces
+@@ -6835,7 +6839,7 @@
+ 			tri = false
+ 		end
+ 	end
+-	check("Types : 18 espèces, 3 par type (6 types), chaque rareté forme un triangle complet de la roue", #B.SPECIES_TYPE == 18 and #Config.PETS == 18 and tri and perType["Feu"] == 3 and perType["Eau"] == 3 and perType["Nature"] == 3 and perType["Ciel"] == 3 and perType["Ombre"] == 3 and perType["Lumière"] == 3)
++	check("Types : 18 espèces, 3 par type (6 types), chaque rareté forme un triangle complet de la roue", #B.SPECIES_TYPE == 78 and #Config.PETS == 18 and tri and perType["Feu"] == 3 and perType["Eau"] == 3 and perType["Nature"] == 3 and perType["Ciel"] == 3 and perType["Ombre"] == 3 and perType["Lumière"] == 3)
+ 	check("Types : avantage x1,5, désavantage x0,67, neutre x1", B.typeMul("Feu", "Nature") == 1.5 and B.typeMul("Nature", "Feu") == 0.67 and B.typeMul("Feu", "Ciel") == 1 and B.typeMul("Lumière", "Ombre") == 1.5 and B.typeMul("Ciel", "Ombre") == 0.67)
+ 	local function team(tier, off)
+ 		tier = Config.TIER_MIGRATE[tier] -- lot 9 : `tier` garde l'ancien indice (1..6) des tests du lot 8
+@@ -7717,7 +7721,7 @@
+ 			return nil
+ 		end
+ 		local ln, lg, ls = panelLabel("Normal"), panelLabel("Golden"), panelLabel("Status")
+-		checkv("Panneau du tapis (e2e) : table standard et table dorée = Config.beltOddsText, la standard en surbrillance (▶)", ln ~= nil and lg ~= nil and ln.Text == "▶ Standard : " .. Config.beltOddsText("normal") and lg.Text == "Doré : " .. Config.beltOddsText("golden"))
++		checkv("Panneau du tapis (e2e) : table standard et table dorée = Config.beltOddsText, la standard en surbrillance (▶)", ln ~= nil and lg ~= nil and ln.Text == "▶ Standard : " .. RT.require(RT.services.ReplicatedStorage:FindFirstChild("Shared"):FindFirstChild("Config")).beltOddsText("normal") and lg.Text == "Doré : " .. RT.require(RT.services.ReplicatedStorage:FindFirstChild("Shared"):FindFirstChild("Config")).beltOddsText("golden")) -- lot 11 : config du serveur factice (10 raretés publiées)
+ 		local idsBefore = #allBeltPrompts()
+ 		hooks.goldenAdd(120, "Zoé")
+ 		RT.step(2)
+@@ -10995,6 +10999,8 @@
+ 		end
+ 		return n
+ 	end
++	local roster78 = cfg.PETS
++	cfg.PETS = table.move(roster78, 1, 18, 1, {}) -- lot 11 : ce scénario suppose la rareté Secret SANS espèce (le bestiaire en publie 5) : roster historique de 18 espèces
+ 	check("Œuf Secret (Robux) : aucune espèce Secret publiée -> offre masquée (Config.offerVisible) et reçu refusé (NotProcessedYet), rien livré", not cfg.offerVisible(cfg.PRODUCTS.EggSecret, false) and receipt(9910, "SEC-1", 9701) == PS.NotProcessedYet and eggsOf(8) == 0)
+ 	cfg.PETS[#cfg.PETS + 1] = { tier = 8, emoji = "?", name = "Test Secret", inc = 80000, color = cfg.PETS[1].color, ears = "none", extra = "none" }
+ 	check("Œuf Secret (Robux) : espèce publiée et compte non restreint -> offre visible ; restreint ou inconnu -> masquée", cfg.offerVisible(cfg.PRODUCTS.EggSecret, false) and not cfg.offerVisible(cfg.PRODUCTS.EggSecret, true) and not cfg.offerVisible(cfg.PRODUCTS.EggSecret, nil))
+@@ -11011,6 +11017,7 @@
+ 	RT.policy = nil
+ 	RT.removePlayer(restricted)
+ 	table.remove(cfg.PETS)
++	cfg.PETS = roster78
+ 	-- mesures : 12 métriques, file bornée, 1 événement / s / joueur, service absent sans erreur
+ 	local Tm = RT.require(RT.services.ServerScriptService:FindFirstChild("Telemetry"))
+ 	local nM = 0
+@@ -11342,6 +11349,15 @@
+ 		opts.hook = opts.hook or loopGuard
+ 		return newRuntime(opts)
+ 	end })
++end)()
++
++;(function()
++	-- Lot 11 : bestiaire de 78 espèces (Bestiary, types et compétences, modèles Blender, collection, repli procédural), aussi lançable seul par tests/run_lot11.py
++	local lot11 = luau.load(fs.readFile("roblox/tests/lot11.luau"), { debugName = "lot11" })()
++	lot11({ check = check, suite = suite, luau = luau, fs = fs, newRuntime = function(opts)
++		opts.hook = opts.hook or loopGuard
++		return newRuntime(opts)
++	end })
+ end)()
+ 
+ ;(function()

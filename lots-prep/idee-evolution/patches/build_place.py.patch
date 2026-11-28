@@ -1,0 +1,11 @@
+--- a/roblox/tools/build_place.py	2026-11-27 21:14:08.000000000 +0000
++++ b/roblox/tools/build_place.py	2026-11-27 21:51:30.042872835 +0000
+@@ -28,7 +28,7 @@
+           ("ShopInfo", "ShopInfo.lua"), ("ShopData", "ShopData.lua"), ("Shop", "Shop.lua"), ("Season", "Season.lua"), ("SeasonData", "SeasonData.lua"),  # lot 16 : boutique, passe de combat
+           ("Offers", "Offers.lua"), ("OffersData", "OffersData.lua"), ("SellersData", "SellersData.lua"),  # lot 16 : offres à l'écran, vendeurs PNJ
+           ("Bestiary", "Bestiary.lua"), ("PetXp", "PetXp.lua"), ("BattleRewards", "BattleRewards.lua"),  # lots 11 et 12 : bestiaire, XP de pet, cartes de récompense
+-          ("Duel", "Duel.lua"), ("Ranked", "Ranked.lua")]  # lot 13 : duel local, ligues, remise de saison ; lot 14 : classé en direct (règles pures)
++          ("Duel", "Duel.lua"), ("Ranked", "Ranked.lua"), ("Evolution", "Evolution.lua")]  # lot 13 : duel local, ligues, remise de saison ; lot 14 : classé en direct (règles pures) ; idée 2 : évolution des pets
+ 
+ def shared():
+     return item("ReplicatedStorage", "ReplicatedStorage", children=[
