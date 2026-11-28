@@ -1966,6 +1966,19 @@ function Config.allEventTags()
 	return out
 end
 
+-- Bouton « Bugs et idées » (menu Plus) : texte AFFICHÉ seulement. Aucun envoi automatique, aucune donnée du joueur (nom, identifiant, appareil) n'est lue ni
+-- ajoutée, aucun lien cliquable, aucun RemoteEvent : le joueur écrit lui-même s'il le souhaite. Config.contactLines() = lignes affichées (testé : tests/run.luau).
+Config.CONTACT = {
+	title = "Bugs et idées",
+	email = "ahzmksupport@gmail.com",
+	line = "Écris-nous à : ahzmksupport@gmail.com",
+	hint = "Décris le bug : appareil, ce que tu faisais, ce qui s'est passé",
+	note = "Rien n'est envoyé depuis le jeu : c'est toi qui écris, si tu le veux.",
+}
+function Config.contactLines()
+	return { Config.CONTACT.line, Config.CONTACT.hint, Config.CONTACT.note }
+end
+
 -- Mini-carte (coin droit) : activable par le bouton 🗺 ; `radius` studs du centre au bord, `size` pixels, `hz` mises à jour par seconde (faible : mobile).
 Config.MINIMAP = { enabled = true, radius = 260, size = 112, sizeSmall = 84, hz = 4, guardRange = 90, maxDots = 24 }
 

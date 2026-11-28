@@ -11728,5 +11728,28 @@ end)()
 	end
 end)()
 
+;(function()
+	suite("Bouton « Bugs et idées » (Config.CONTACT) : texte affiché seulement, aucune donnée du joueur")
+	local lines = Config.contactLines()
+	local all = table.concat(lines, "\n")
+	check("Texte : « Écris-nous à : ahzmksupport@gmail.com » et la consigne « Décris le bug : appareil, ce que tu faisais, ce qui s'est passé »",
+		lines[1] == "Écris-nous à : ahzmksupport@gmail.com" and lines[2] == "Décris le bug : appareil, ce que tu faisais, ce qui s'est passé" and Config.CONTACT.email == "ahzmksupport@gmail.com")
+	check("Aucun lien, aucun gabarit de donnée joueur dans le texte (http, www, {, %s, UserId, Name)", all:find("http", 1, true) == nil and all:find("www", 1, true) == nil and all:find("{", 1, true) == nil
+		and all:find("%s", 1, true) == nil and all:find("UserId", 1, true) == nil and all:find("Name", 1, true) == nil)
+	check("contactLines() ne prend aucun paramètre et renvoie toujours le même texte (aucune donnée injectable)", table.concat(Config.contactLines(), "\n") == all)
+	local client = fs.readFile("roblox/src/StarterPlayerScripts/Client.client.lua")
+	local a = client:find("-- contact:debut", 1, true)
+	local b = client:find("-- contact:fin", 1, true)
+	local block = (a and b and b > a) and client:sub(a, b) or ""
+	local bad = false
+	for _, w in ipairs({ "player", "UserId", "DisplayName", "FireServer", "InvokeServer", "HttpService", "Remote", "SetCore", "OpenBrowser", "Clipboard", "Name =" }) do
+		if block:find(w, 1, true) then
+			bad = true
+		end
+	end
+	check("Client : le panneau n'utilise que Config.CONTACT (aucune donnée du joueur, aucun remote, aucun envoi, aucun lien ni presse-papiers)", #block > 0 and not bad and block:find("Config.contactLines()", 1, true) ~= nil)
+	check("Panneau lisible sur mobile : texte principal en 20 px, retour à la ligne automatique", block:find("TextSize = i == 1 and 20 or 16", 1, true) ~= nil and block:find("TextWrapped = true", 1, true) ~= nil)
+end)()
+
 print(("Tests Config : %d réussis, %d échoués"):format(passed, failed))
 process.exit(failed > 0 and 1 or 0)

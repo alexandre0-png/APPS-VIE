@@ -1546,6 +1546,24 @@ function render()
 			end
 		end
 	elseif panel.name == "more" then
+		do -- contact:debut (bouton « Bugs et idées » : texte affiché seulement, aucune donnée du joueur, aucun envoi, aucun lien, aucun remote)
+			local open = panel.contact == true
+			addRow({ icon = "🐞", title = Config.CONTACT.title, desc = "Un bug, une idée ? Voici comment nous écrire.", btn = open and "Masquer" or "Afficher", btnColor = COL.green, onClick = function()
+				panel.contact = not open
+				render()
+			end })
+			if open then
+				local box = make("Frame", { Size = UDim2.new(1, -8, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = COL.bg }, scroll)
+				corner(box, 14)
+				make("UIStroke", { Color = COL.green, Thickness = 2 }, box)
+				make("UIPadding", { PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10), PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 12) }, box)
+				make("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }, box)
+				for i, line in ipairs(Config.contactLines()) do
+					text(box, { LayoutOrder = i, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left,
+						TextSize = i == 1 and 20 or 16, TextColor3 = i == 1 and COL.yellow or (i == 2 and COL.text or COL.muted), Font = i == 1 and FONT or Enum.Font.Gotham, Text = line })
+				end
+			end
+		end -- contact:fin
 		do -- lot 15 : réglage anti-harcèlement « Ne plus être interpellé » (sauvegardé dans le profil : npc.off)
 			local off = type(state.l15) == "table" and state.l15.npcOff == true
 			addRow({ icon = "🤫", title = "Ne plus être interpellé par les PNJ", desc = off and "Activé : Pip, Nora, Lina, Bruno et Maître Kaï ne viennent plus te voir." or "Désactivé : des PNJ viennent parfois te proposer un échange ou un combat (jamais pendant un vol).", btn = off and "Activé" or "Désactivé", btnColor = off and COL.green or COL.dis, onClick = function()
@@ -1591,7 +1609,7 @@ function render()
 		local cost = Config.rebirthCost(state.rb)
 		addRow({
 			icon = "🌅", title = "Renaissance" .. (state.rb > 0 and (" (x" .. state.rb .. ")") or ""),
-			desc = "Remet pièces, pets et améliorations à zéro. Garde vitesse et collection. Revenus +50% définitif.",
+			desc = "Remet pièces, pets, œufs posés et améliorations à zéro. Garde collection, achats, sac d'œufs, saison et calendrier. Revenus +50% définitif.",
 			btn = panel.confirm and "Confirmer ?" or ("🪙 " .. fmt(cost)),
 			btnColor = panel.confirm and COL.red or nil, btnText = panel.confirm and COL.text or nil, cost = (not panel.confirm) and cost or nil,
 			onClick = function()
