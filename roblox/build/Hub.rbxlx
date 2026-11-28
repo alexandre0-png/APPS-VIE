@@ -17253,7 +17253,8 @@ return Ranked
 --   * composition interne des cartes (nom, niveau, barre de PV, texte de PV, points d'état de l'équipe, pastilles de charge du spécial) ;
 --   * scène 3D : positions des deux socles lumineux, caméra fixe en léger angle cadrée sur la zone libre entre les cartes, sable ou herbe selon le lieu ;
 --   * textes et couleurs (PV « 260/260 », points d'état, charge du spécial 0..5, couleur de barre) et signaux d'animation tirés des événements du moteur ;
---   * plafond d'instances : estimation du coût de la scène, décor réduit pour rester sous MAX_INSTANCES (mobile : moins d'effets).
+--   * plafond d'instances : estimation du coût de la scène, décor réduit pour rester sous MAX_INSTANCES (mobile : moins d'effets) ;
+--   * états sous les cartes (pastilles), écran « Changer », flash du spécial, sons par action (Config.SOUNDS seulement), XP de fin (message du serveur seulement).
 -- Ne lit que ce que le serveur envoie déjà (vue Battle.view, événements, payload « start »). Pas de += / -= / continue, pas de math.atan2 (lanceur lupa).
 local BattleLayout = {}
 
@@ -17282,6 +17283,7 @@ BattleLayout.UI = {
 	log = { 16, 26, 32 }, status = { 255, 226, 140 },
 	darkText = { 14, 28, 18 }, lightText = { 244, 244, 252 }, fleeText = { 40, 8, 8 }, swapText = { 14, 20, 30 }, offText = { 220, 222, 232 },
 	meChip = { 74, 163, 255 }, foeChip = { 255, 107, 107 },
+	rowActive = { 58, 72, 86 }, specialFill = { 78, 88, 124 },
 }
 -- Couleur du socle lumineux par type (le type est « Nature » ou « Plante » selon la source).
 BattleLayout.TYPE_COLOR = {
@@ -17812,7 +17814,359 @@ function BattleLayout.textPairs()
 		{ "super efficace", BattleLayout.efficacy(1.5).rgb, U.log }, { "efficace", BattleLayout.efficacy(1.25).rgb, U.log },
 		{ "peu efficace", BattleLayout.efficacy(0.8).rgb, U.log }, { "pas très efficace", BattleLayout.efficacy(0.6).rgb, U.log }, { "neutre", BattleLayout.efficacy(1).rgb, U.log },
 		{ "soin", U.hp, U.log },
+		{ "pastille étourdi", BattleLayout.STATUS_UI.stun.fg, BattleLayout.STATUS_UI.stun.bg }, { "pastille garde", BattleLayout.STATUS_UI.guard.fg, BattleLayout.STATUS_UI.guard.bg },
+		{ "pastille concentration", BattleLayout.STATUS_UI.focus.fg, BattleLayout.STATUS_UI.focus.bg }, { "info-bulle d'état", U.text, U.log }, { "pastille +n", BattleLayout.STATUS_MORE.fg, BattleLayout.STATUS_MORE.bg },
+		{ "Changer : pet disponible", U.swapText, U.swap }, { "Changer : pet au combat", U.text, U.rowActive }, { "Changer : pet K.O.", U.offText, U.specialOff },
+		{ "Spécial en charge (remplie)", U.offText, U.specialFill }, { "Changer : titre", U.text, U.card }, { "Changer : note", U.muted, U.card },
 	}
+end
+
+---------------------------------------------------------------- états sous les cartes, écran « Changer », flash du spécial, sons, XP de fin
+
+-- États que le moteur (Battle.view, lot 12A) expose réellement : `stun` (nombre de tours à passer), `guard` (booléen : les prochains coups reçus sont réduits ; le
+-- nombre de coups restants n'est PAS dans la vue) et `focus` (nombre de tours d'attaque +40 %). Le moteur n'a ni brûlure, ni gel d'état (le spécial « Gel » retire
+-- seulement de la charge), ni autre état : AUCUN n'est inventé ici. Chaque pastille porte une icône et un chiffre, jamais la couleur seule ; la durée est lue au toucher.
+BattleLayout.STATUS_ORDER = { "stun", "guard", "focus" }
+BattleLayout.STATUS_UI = {
+	stun = { icon = "💫", label = "Étourdi", bg = { 255, 226, 140 }, fg = { 30, 24, 0 } },
+	guard = { icon = "🛡", label = "Garde", bg = { 120, 190, 255 }, fg = { 8, 20, 38 } },
+	focus = { icon = "⚡", label = "Concentration", bg = { 255, 170, 70 }, fg = { 38, 20, 0 } },
+}
+BattleLayout.PILL_W, BattleLayout.PILL_H = 46, 44 -- chaque pastille est aussi sa zone tactile (44 px de haut)
+BattleLayout.STATUS_MORE = { bg = { 230, 230, 238 }, fg = { 20, 20, 30 } } -- pastille « +n » (états regroupés faute de place)
+BattleLayout.PILL_GAP = 4
+BattleLayout.MAX_PILLS = 3
+BattleLayout.TIP_SECONDS = 3 -- l'info-bulle d'une pastille disparaît seule après 3 s
+
+-- Pastilles d'une unité de la vue : { { key, icon, label, turns (nombre ou nil), text, bg, fg } }, dans l'ordre stun, guard, focus ; unité KO ou invalide : aucune.
+function BattleLayout.statusPills(u)
+	local out = {}
+	if type(u) ~= "table" or not isNum(u.hp) or u.hp <= 0 then
+		return out
+	end
+	local U = BattleLayout.STATUS_UI
+	local function add(key, turns)
+		local d = U[key]
+		out[#out + 1] = { key = key, icon = d.icon, label = d.label, turns = turns, text = d.icon .. (turns and (" " .. turns) or ""), bg = d.bg, fg = d.fg }
+	end
+	if isNum(u.stun) and u.stun > 0 then
+		add("stun", clamp(math.floor(u.stun), 1, 99))
+	end
+	if u.guard == true then
+		add("guard", nil)
+	end
+	if isNum(u.focus) and u.focus > 0 then
+		add("focus", clamp(math.floor(u.focus), 1, 99))
+	end
+	return out
+end
+
+local function plural(n, one, many)
+	return n .. " " .. (n > 1 and many or one)
+end
+
+-- Texte affiché au toucher d'une pastille : icône, nom, durée. `Battle` (facultatif) fournit le bonus de concentration réel (Battle.SKILLS.focus.boost).
+function BattleLayout.pillDetail(pill, Battle)
+	if type(pill) ~= "table" then
+		return ""
+	end
+	if pill.key == "stun" then
+		local n = isNum(pill.turns) and pill.turns or 1
+		return pill.icon .. " Étourdi : passe " .. (n > 1 and ("ses " .. n .. " prochains tours") or "son prochain tour")
+	elseif pill.key == "guard" then
+		return pill.icon .. " Garde : les prochains coups reçus font moins de dégâts"
+	elseif pill.key == "focus" then
+		local n = isNum(pill.turns) and pill.turns or 1
+		local boost = type(Battle) == "table" and type(Battle.SKILLS) == "table" and type(Battle.SKILLS.focus) == "table" and Battle.SKILLS.focus.boost or 1.4
+		return pill.icon .. " Concentration : attaque +" .. math.floor((boost - 1) * 100 + 0.5) .. " % pendant " .. plural(n, "tour", "tours")
+	end
+	return ""
+end
+
+-- Rectangles des `n` pastilles (au plus MAX_PILLS) d'un camp : camp 2 (adversaire) sous l'ordre du tour, alignées à droite sous la carte ; camp 1 (joueur) au-dessus de
+-- sa carte, alignées à gauche. `R` = BattleLayout.rects(...). Chaque rectangle fait PILL_W x PILL_H (>= 44 px de haut) et sert aussi de zone tactile.
+function BattleLayout.pillRects(side, R, n)
+	local count = clamp(int(n, 0), 0, BattleLayout.MAX_PILLS)
+	local W, H, G = BattleLayout.PILL_W, BattleLayout.PILL_H, BattleLayout.PILL_GAP
+	local out = {}
+	for i = 1, count do
+		if side == 2 then
+			local right = R.foeCard.x + R.foeCard.w
+			out[i] = rect(right - i * W - (i - 1) * G, R.queue.y + R.queue.h + G, W, H)
+		else
+			out[i] = rect(R.meCard.x + (i - 1) * (W + G), R.meCard.y - G - H, W, H)
+		end
+	end
+	return out
+end
+
+-- Placement des pastilles des deux camps sans AUCUNE superposition : pour chaque camp (adversaire d'abord) on garde les premiers emplacements de pillRects qui sont dans la zone
+-- utile et libres (ni carte, ni journal, ni bouton, ni vitesse, ni « Passer », ni ordre du tour, ni pastille déjà posée). S'il y a plus d'états que de place, la dernière pastille
+-- devient une pastille « +n » qui regroupe le reste (son info-bulle les détaille tous) : aucun état n'est perdu tant qu'une place existe. nFoe / nMe = nombre d'états de chaque camp.
+-- Retourne { [1] = { rects, cap, shown, overflow }, [2] = { ... } } ; `shown` pastilles à afficher, `overflow` > 0 si la dernière est une pastille « +n ».
+function BattleLayout.pillLayout(R, nFoe, nMe)
+	local obstacles = { R.foeCard, R.meCard, R.log, R.actions.attack, R.actions.special, R.actions.swap, R.actions.flee, R.speed, R.skip, R.queue }
+	local placed = {}
+	local out = {}
+	local function free(r)
+		local a = R.area
+		if r.x < a.x - 1e-6 or r.y < a.y - 1e-6 or r.x + r.w > a.x + a.w + 1e-6 or r.y + r.h > a.y + a.h + 1e-6 then
+			return false
+		end
+		for _, o in ipairs(obstacles) do
+			if BattleLayout.overlap(r, o) then
+				return false
+			end
+		end
+		for _, o in ipairs(placed) do
+			if BattleLayout.overlap(r, o) then
+				return false
+			end
+		end
+		return true
+	end
+	for _, side in ipairs({ 2, 1 }) do
+		local n = clamp(int(side == 2 and nFoe or nMe, 0), 0, BattleLayout.MAX_PILLS)
+		local all = BattleLayout.pillRects(side, R, BattleLayout.MAX_PILLS)
+		local cap = 0
+		for i = 1, BattleLayout.MAX_PILLS do
+			if free(all[i]) then
+				cap = i
+			else
+				break
+			end
+		end
+		local shown = math.min(n, cap)
+		local rects = {}
+		for i = 1, shown do
+			rects[i] = all[i]
+			placed[#placed + 1] = all[i]
+		end
+		out[side] = { rects = rects, cap = cap, shown = shown, overflow = (n > cap and cap >= 1) and (n - cap + 1) or 0 }
+	end
+	return out
+end
+
+-- Contenu des `shown` pastilles à afficher pour la liste `pills` (BattleLayout.statusPills) : une pastille par état, ou, en cas de manque de place, les premières puis une
+-- pastille « +n » qui regroupe les états restants. Chaque élément : { text, bg, fg, detail, merged }.
+function BattleLayout.pillChips(pills, shown, Battle)
+	local list = type(pills) == "table" and pills or {}
+	local n = #list
+	local show = clamp(int(shown, 0), 0, n)
+	local chips = {}
+	if show >= n then
+		for i = 1, n do
+			chips[i] = { text = list[i].text, bg = list[i].bg, fg = list[i].fg, detail = BattleLayout.pillDetail(list[i], Battle), merged = false }
+		end
+	elseif show >= 1 then
+		for i = 1, show - 1 do
+			chips[i] = { text = list[i].text, bg = list[i].bg, fg = list[i].fg, detail = BattleLayout.pillDetail(list[i], Battle), merged = false }
+		end
+		local details = {}
+		for i = show, n do
+			details[#details + 1] = BattleLayout.pillDetail(list[i], Battle)
+		end
+		chips[show] = { text = "+" .. (n - show + 1), bg = BattleLayout.STATUS_MORE.bg, fg = BattleLayout.STATUS_MORE.fg, detail = table.concat(details, "\n"), merged = true }
+	end
+	return chips
+end
+
+-- Fil des PV de toute l'équipe pour l'écran « Changer » : une ligne par pet (au plus MAX_DOTS) avec indice, PV, charge du spécial, état. Un pet à 0 PV est « ko » (grisé,
+-- jamais cliquable) ; le pet au combat est « active » (affiché, non cliquable : on ne change pas pour soi-même) ; les autres sont « ready » (cliquables).
+function BattleLayout.swapRows(side)
+	local rows = {}
+	local units = type(side) == "table" and type(side.units) == "table" and side.units or {}
+	local active = type(side) == "table" and isNum(side.active) and math.floor(side.active) or 1
+	for i = 1, math.min(#units, BattleLayout.MAX_DOTS) do
+		local u = units[i]
+		if type(u) == "table" then
+			local alive = isNum(u.hp) and u.hp > 0
+			local info = BattleLayout.chargePips(u.charge, u.chargeMax)
+			local state = (not alive) and "ko" or (i == active and "active" or "ready")
+			local pipsText = ""
+			for k = 1, info.max do
+				pipsText = pipsText .. (info.pips[k] and "●" or "○")
+			end
+			local tag = state == "ko" and "💀 K.O." or (state == "active" and "▶ Au combat" or "🔁 Changer")
+			rows[#rows + 1] = {
+				index = i, p = u.p, alive = alive, active = state == "active", state = state, clickable = state == "ready", tag = tag,
+				hp = clamp(int(u.hp, 0), 0, 9999999), maxHp = math.max(0, int(u.maxHp, 0)), frac = BattleLayout.hpFraction(u), hpText = BattleLayout.hpText(u),
+				level = BattleLayout.levelText(u), charge = info.charge, chargeMax = info.max, chargeReady = info.ready, pipsText = pipsText,
+				chargeText = "Charge " .. info.charge .. "/" .. info.max, statuses = BattleLayout.statusPills(u),
+			}
+		end
+	end
+	return rows
+end
+
+BattleLayout.SWAP_ROW_MIN = 44 -- une ligne de l'écran « Changer » est un bouton : 44 px de haut au moins
+BattleLayout.SWAP_ROW_MAX = 64
+
+-- Écran « Changer » : panneau centré (titre, note, lignes, bouton « Retour »). Les lignes passent sur 2 colonnes quand la fenêtre est trop basse pour 44 px chacune.
+-- Retourne { panel, title, note, back, cols, rowH, rows = { rect } } ; tout est dans la zone utile, aucune superposition, boutons >= 44 px (testé sur la matrice d'appareils).
+function BattleLayout.swapRects(vw, vh, safeIn, n)
+	local R = BattleLayout.rects(vw, vh, safeIn)
+	local count = clamp(int(n, 3), 1, BattleLayout.MAX_DOTS)
+	local a = R.area
+	local pw = math.floor(math.min(a.w, 440))
+	local pad, gap = 10, 6
+	local titleH, noteH, backH = 28, 18, BattleLayout.MIN_TOUCH + 4
+	local fixed = pad + titleH + noteH + gap * 2 + backH + pad
+	local ph = math.floor(a.h)
+	local panel = rect(math.floor(a.x + (a.w - pw) / 2), math.floor(a.y), pw, ph)
+	local avail = ph - fixed
+	local cols = 1
+	local rowsPerCol = count
+	local rowH = math.floor((avail - (rowsPerCol - 1) * gap) / rowsPerCol)
+	if rowH < BattleLayout.SWAP_ROW_MIN and count > 1 then
+		cols = 2
+		rowsPerCol = math.ceil(count / 2)
+		rowH = math.floor((avail - (rowsPerCol - 1) * gap) / rowsPerCol)
+	end
+	rowH = clamp(rowH, BattleLayout.SWAP_ROW_MIN, BattleLayout.SWAP_ROW_MAX)
+	local out = { panel = panel, cols = cols, rowH = rowH, rows = {} }
+	out.title = rect(panel.x + pad, panel.y + pad, pw - 2 * pad, titleH)
+	out.note = rect(panel.x + pad, out.title.y + titleH, pw - 2 * pad, noteH)
+	local rowsY = out.note.y + noteH + gap
+	local colW = math.floor((pw - 2 * pad - (cols - 1) * gap) / cols)
+	for i = 1, count do
+		local col = (i - 1) // rowsPerCol
+		local row = (i - 1) % rowsPerCol
+		out.rows[i] = rect(panel.x + pad + col * (colW + gap), rowsY + row * (rowH + gap), colW, rowH)
+	end
+	out.back = rect(panel.x + pad, panel.y + ph - pad - backH, pw - 2 * pad, backH)
+	return out
+end
+
+-- Flash du spécial : déclenché UNIQUEMENT quand la charge du MÊME pet passe de « pas pleine » à « pleine » (jamais au changement de pet ni à la 1re vue).
+-- prev / cur = { key = identité du pet, full = charge pleine ? } (ou nil). Retourne "flash" ou "set" (mise à jour silencieuse).
+function BattleLayout.specialTransition(prev, cur)
+	if type(prev) == "table" and type(cur) == "table" and prev.key ~= nil and prev.key == cur.key and prev.full ~= true and cur.full == true then
+		return "flash"
+	end
+	return "set"
+end
+
+BattleLayout.FLASH_SECONDS = 0.7
+BattleLayout.MAX_FLASH = 1.5 -- aucun flash ne dure plus de 1,5 s, quelle que soit la vitesse choisie
+
+-- Durée réelle du flash : 0,7 s (0,35 s en effets réduits), divisée par la vitesse du combat, jamais au-dessus de MAX_FLASH.
+function BattleLayout.flashSeconds(reduced, speed)
+	local base = reduced == true and BattleLayout.FLASH_SECONDS / 2 or BattleLayout.FLASH_SECONDS
+	return math.min(BattleLayout.MAX_FLASH, BattleLayout.animSeconds(base, speed))
+end
+
+-- Image du flash à l'instant a (0..1) : voile blanc qui s'éteint, bouton qui gonfle de 1 à 1,12 puis revient, contour qui s'estompe ; extrémités exactes.
+function BattleLayout.specialFlash(a)
+	local k = isNum(a) and clamp(a, 0, 1) or 1
+	local pulse = math.sin(math.pi * k)
+	return { veilTransparency = 1 - 0.75 * (1 - k) * (1 - k), scale = 1 + 0.12 * pulse, strokeAlpha = 1 - k }
+end
+
+-- Remplissage du bouton Spécial selon la charge (animation de charge) : fraction 0..1.
+function BattleLayout.chargeFill(charge, max)
+	local info = BattleLayout.chargePips(charge, max)
+	return info.charge / info.max
+end
+
+-- Points de dégradé du bouton Spécial (animation de charge) : le fond multiplie sa couleur par `m` (1 = clair) sur la partie chargée et par `dim` sur le reste, avec une
+-- coupure nette à la fraction de charge. Retourne { { t, m } } avec t strictement croissant de 0 à 1 (exigence de ColorSequence).
+function BattleLayout.chargeStops(frac, dim)
+	local f = isNum(frac) and clamp(frac, 0, 1) or 0
+	local d = isNum(dim) and clamp(dim, 0, 1) or 0.55
+	if f <= 0 then
+		return { { t = 0, m = d }, { t = 1, m = d } }
+	elseif f >= 1 then
+		return { { t = 0, m = 1 }, { t = 1, m = 1 } }
+	end
+	local cut = math.min(0.999, f)
+	return { { t = 0, m = 1 }, { t = cut, m = 1 }, { t = math.min(1, cut + 0.001), m = d }, { t = 1, m = d } }
+end
+
+-- Sons : clés de Config.SOUNDS seulement (aucun identifiant inventé). Une clé est jouable si Config.SOUNDS_ENABLED n'est pas faux et si sa définition a un id non vide.
+function BattleLayout.soundKey(Config, key)
+	if type(Config) ~= "table" or type(key) ~= "string" or Config.SOUNDS_ENABLED == false or type(Config.SOUNDS) ~= "table" then
+		return nil
+	end
+	local def = Config.SOUNDS[key]
+	if type(def) ~= "table" or type(def.id) ~= "string" or def.id == "" then
+		return nil
+	end
+	return key
+end
+
+-- Son de chaque action d'un tour : attaque = son du type de l'attaquant (Config.ATK_SOUND), spécial = special_hit, changement de pet = click. Soin, garde, K.O., étourdissement :
+-- aucun son n'existe dans Config.SOUNDS, donc silence (rien d'inventé). opts = { typeOf = fn(espèce) -> type, speed, attackSounds = false pour laisser les effets de type jouer
+-- les attaques }. Retourne { { at = secondes, key, kind } } aux mêmes instants que les animations de BattleScene.cues (un coup ou un soin tous les 0,6 s à 1x).
+function BattleLayout.soundPlan(Config, events, opts)
+	local o = type(opts) == "table" and opts or {}
+	local out = {}
+	local step = BattleLayout.animSeconds(0.6, o.speed)
+	local k = 0
+	for _, ev in ipairs(type(events) == "table" and events or {}) do
+		local cue = BattleLayout.cue(ev)
+		if cue then
+			local at = step * k
+			local key, kind
+			if cue.anim == "attack" and cue.special == true then
+				key, kind = BattleLayout.soundKey(Config, "special_hit"), "special"
+			elseif cue.anim == "attack" and ev.t == "hit" and o.attackSounds ~= false then
+				local typ = type(o.typeOf) == "function" and o.typeOf(ev.p) or nil
+				key, kind = BattleLayout.soundKey(Config, type(Config) == "table" and type(Config.ATK_SOUND) == "table" and Config.ATK_SOUND[typ] or nil), "attack"
+			elseif cue.anim == "swap" and ev.forced ~= true then
+				key, kind = BattleLayout.soundKey(Config, "click"), "swap"
+			end
+			if key then
+				out[#out + 1] = { at = at, key = key, kind = kind }
+			end
+			if cue.anim == "attack" or cue.anim == "heal" then
+				k = k + 1
+			end
+		end
+	end
+	return out
+end
+
+-- XP du pet à l'écran de fin : lue UNIQUEMENT dans le message « end » du serveur (`xp` ou `rewards.xp`) ; le client ne la calcule pas (le serveur n'envoie ni l'XP avant
+-- le combat ni le détail du barème). Formes acceptées : un nombre (gain par pet de l'équipe) ou une liste { { p = espèce, gain = nombre, total = XP cumulée (facultatif) } }
+-- avec PetXp (facultatif) pour détecter la montée de niveau. Retourne au plus 4 lignes ; valeurs invalides ignorées ; aucune ligne si le serveur n'envoie rien.
+function BattleLayout.xpLines(msg, Config, PetXp)
+	local lines = {}
+	if type(msg) ~= "table" then
+		return lines
+	end
+	local src = msg.xp
+	if src == nil and type(msg.rewards) == "table" then
+		src = msg.rewards.xp
+	end
+	if isNum(src) then
+		if src >= 1 then
+			lines[1] = "⭐ +" .. math.floor(math.min(src, 100000)) .. " XP pour chaque pet de l'équipe"
+		end
+		return lines
+	end
+	if type(src) ~= "table" then
+		return lines
+	end
+	for _, e in ipairs(src) do
+		if #lines >= 4 then
+			break
+		end
+		if type(e) == "table" and isNum(e.gain) and e.gain >= 1 then
+			local def = type(Config) == "table" and type(Config.PETS) == "table" and Config.PETS[e.p] or nil
+			local who = def and (tostring(def.emoji or "") .. " " .. tostring(def.name or "?")) or "⭐ Pet"
+			local line = who .. " : +" .. math.floor(math.min(e.gain, 100000)) .. " XP"
+			if isNum(e.total) and type(PetXp) == "table" and type(PetXp.levelOf) == "function" then
+				local after = PetXp.levelOf(e.total)
+				local before = PetXp.levelOf(math.max(0, e.total - e.gain))
+				if isNum(after) and isNum(before) and after > before then
+					line = line .. " · ⬆ Niv. " .. before .. " → " .. after
+				end
+			end
+			lines[#lines + 1] = line
+		end
+	end
+	return lines
 end
 
 ---------------------------------------------------------------- plafond d'instances
@@ -17825,7 +18179,11 @@ BattleLayout.COST = {
 	pip = 2,
 	button = 4, -- bouton, coin, contour, étiquette de charge
 	log = 5,
-	tray = 1 + 3 * 3, -- plateau de réserve : cadre + 3 boutons (bouton, coin, contour)
+	swapPanel = 6, -- écran « Changer » (construit à l'ouverture, détruit à la fermeture) : cadre, titre, note, bouton Retour (+ coin, contour)
+	swapRow = 4, -- une ligne par pet : bouton, coin, fond et remplissage de la barre de PV
+	pill = 2, -- pastille d'état : bouton + coin (3 par camp au plus)
+	tip = 1, -- info-bulle d'une pastille : une étiquette
+	flash = 5, -- flash et charge du spécial : barre derrière le bouton (cadre, coin, dégradé), échelle, voile
 	ground = 2, -- sol, anneau
 	pedestal = 2, -- socle de pierre, disque néon
 	beam = 1, -- colonne de lumière translucide (néon)
@@ -17848,7 +18206,7 @@ function BattleLayout.plan(opts)
 	local beams = not reduced
 	local decor = reduced and 6 or 12
 	local function estimate(n)
-		local e = C.gui + 2 * C.card + (nMe + nFoe) * C.dot + BattleLayout.CHARGE_MAX * C.pip + 4 * C.button + C.log + C.tray + C.queue + C.speedBtns + C.ground + 2 * C.pedestal + 2 * C.puppet + n * C.pillar + BattleLayout.MAX_POPUPS * C.popup
+		local e = C.gui + 2 * C.card + (nMe + nFoe) * C.dot + BattleLayout.CHARGE_MAX * C.pip + 4 * C.button + C.log + C.swapPanel + nMe * C.swapRow + 2 * BattleLayout.MAX_PILLS * C.pill + C.tip + C.flash + C.queue + C.speedBtns + C.ground + 2 * C.pedestal + 2 * C.puppet + n * C.pillar + BattleLayout.MAX_POPUPS * C.popup
 		if beams then
 			e = e + 2 * C.beam
 		end

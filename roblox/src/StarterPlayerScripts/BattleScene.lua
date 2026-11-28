@@ -230,13 +230,44 @@ function BattleScene.create(o)
 			swap = button("Swap", "🔁 Changer", U.swap, rgb(U.swapText)),
 			flee = button("Flee", "🏃 Fuir", U.flee, rgb(U.fleeText)),
 		}
-		S.tray = make("Frame", { Name = "SwapTray", BackgroundTransparency = 1, Visible = false, ZIndex = 11 }, root)
-		S.slots = {}
-		for i = 1, 3 do
-			local b = make("TextButton", { Name = "SwapSlot" .. i, Font = FONT, TextSize = 14, TextWrapped = true, Text = "", AutoButtonColor = true, BackgroundColor3 = rgb(U.swap), TextColor3 = rgb(U.swapText), ZIndex = 12 }, S.tray)
-			make("UICorner", { CornerRadius = UDim.new(0, 10) }, b)
-			make("UIStroke", { Color = Color3.fromRGB(10, 18, 22), Thickness = 2 }, b)
-			S.slots[i] = { btn = b, index = nil }
+		-- bouton Spécial : barre de charge DERRIÈRE le bouton (un dégradé sur le bouton teinterait aussi son texte), échelle et voile du flash quand la charge devient pleine
+		S.chargeBar = make("Frame", { Name = "ChargeBar", BackgroundColor3 = rgb(U.specialFill), BorderSizePixel = 0, Visible = false, ZIndex = 9 }, root)
+		make("UICorner", { CornerRadius = UDim.new(0, 10) }, S.chargeBar)
+		S.sGrad = make("UIGradient", { Name = "ChargeGradient", Rotation = 0 }, S.chargeBar)
+		S.sScale = make("UIScale", { Name = "SpecialScale", Scale = 1 }, S.btn.special)
+		S.sVeil = make("Frame", { Name = "SpecialFlash", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(255, 255, 255), BackgroundTransparency = 1, BorderSizePixel = 0, Visible = false, ZIndex = 12 }, S.btn.special)
+		-- pastilles d'état sous les cartes (3 par camp au plus : étourdi, garde, concentration) : chacune est aussi sa zone tactile (>= 44 px de haut) et ouvre une info-bulle
+		S.pills = { {}, {} }
+		S.pillCount = { 0, 0 }
+		S.pillList = { {}, {} }
+		for side = 1, 2 do
+			for i = 1, L.MAX_PILLS do
+				local b = make("TextButton", { Name = "StatePill", Font = FONT, TextSize = 15, Text = "", AutoButtonColor = true, Visible = false, BackgroundColor3 = rgb(U.card), TextColor3 = rgb(U.text), ZIndex = 9 }, root)
+				make("UICorner", { CornerRadius = UDim.new(0, 12) }, b)
+				S.pills[side][i] = { btn = b, data = nil }
+			end
+		end
+		S.tip = make("TextLabel", { Name = "StateTip", Font = FONT, TextSize = 13, TextWrapped = true, Text = "", BackgroundColor3 = rgb(U.log), BackgroundTransparency = 0.05, TextColor3 = rgb(U.text), Visible = false, ZIndex = 13 }, root)
+		function S.layoutPills() -- place les pastilles d'après la disposition courante (sans superposition, voir BattleLayout.pillLayout) ; appelée à chaque mise en page et à chaque mise à jour
+			if not S.rects then
+				return
+			end
+			local lay = L.pillLayout(S.rects, S.pillCount[2], S.pillCount[1])
+			S.pillLay = lay
+			for side = 1, 2 do
+				local chips = L.pillChips(S.pillList[side], lay[side].shown, Battle)
+				for i, p in ipairs(S.pills[side]) do
+					local c = chips[i]
+					p.data = c
+					p.btn.Visible = c ~= nil and not S.dimmed
+					if c then
+						p.btn.Text = c.text
+						p.btn.BackgroundColor3 = rgb(c.bg)
+						p.btn.TextColor3 = rgb(c.fg)
+						place(p.btn, lay[side].rects[i])
+					end
+				end
+			end
 		end
 
 		-- vitesse (1x / 2x / 3x), « Passer l'animation » (dès le 2e combat vu) et ordre du tour (3 pastilles sous la carte adverse)
@@ -293,7 +324,11 @@ function BattleScene.create(o)
 			for _, k in ipairs({ "attack", "special", "swap", "flee" }) do
 				place(S.btn[k], R.actions[k])
 			end
-			place(S.tray, R.swapTray)
+			place(S.chargeBar, R.actions.special)
+			S.layoutPills()
+			if S.closeSwap then -- changement de taille : l'écran « Changer » se referme (il se reconstruit à la bonne taille à la réouverture)
+				S.closeSwap()
+			end
 			place(S.btn.speed, R.speed)
 			place(S.btn.skip, R.skip)
 			place(S.queueLabel, { x = R.queue.x - 62, y = R.queue.y, w = 58, h = R.queue.h })
@@ -301,11 +336,6 @@ function BattleScene.create(o)
 				local d = R.queue.h
 				q.frame.Position = UDim2.fromOffset(R.queue.x + R.queue.w - 3 * d - 2 * 4 + (i - 1) * (d + 4), R.queue.y)
 				q.frame.Size = UDim2.fromOffset(d, d)
-			end
-			local gap = L.GAP
-			local sw = math.floor((R.swapTray.w - 2 * gap) / 3)
-			for i, s in ipairs(S.slots) do
-				place(s.btn, { x = (i - 1) * (sw + gap), y = 0, w = sw, h = R.swapTray.h })
 			end
 			local sc = L.scene(vw, vh, o.safe, ground)
 			S.sc = sc
@@ -554,12 +584,62 @@ function BattleScene.create(o)
 		S.log.Text = type(lines) == "table" and table.concat(lines, "\n") or tostring(lines or "")
 	end
 
+	-- Bouton Spécial : texte, prêt ou non, et animation de charge (la partie chargée du fond est claire, le reste sombre ; coupure nette à charge / max).
 	local function setSpecialButton(sb)
 		local b = S.btn.special
 		b.Text = sb.text
 		b.AutoButtonColor = sb.ready
-		b.BackgroundColor3 = rgb(sb.ready and U.special or U.specialOff)
+		b.BackgroundColor3 = rgb(U.special)
+		b.BackgroundTransparency = sb.ready and 0 or 1 -- pas prêt : le fond est la barre de charge placée derrière
 		b.TextColor3 = sb.ready and rgb(U.darkText) or rgb(U.offText)
+		local frac = sb.ready and 1 or L.chargeFill(sb.charge, sb.max)
+		S.chargeFrac = frac
+		S.specialReady = sb.ready == true
+		S.chargeBar.Visible = not sb.ready and not S.dimmed
+		pcall(function()
+			local pts = {}
+			for _, p in ipairs(L.chargeStops(frac, 0.55)) do
+				pts[#pts + 1] = ColorSequenceKeypoint.new(p.t, Color3.new(p.m, p.m, p.m))
+			end
+			S.sGrad.Color = ColorSequence.new(pts)
+		end)
+	end
+	-- Flash du spécial (charge pleine pour le MÊME pet) : voile blanc qui s'éteint, bouton qui gonfle de 12 % puis revient, son « special_ready ». Au plus 1,5 s (0,35 s en
+	-- effets réduits), divisé par la vitesse ; « Passer » le termine ; un seul flash à la fois ; arrêté à la destruction.
+	function S.flashSpecial()
+		S.flashToken = (S.flashToken or 0) + 1
+		local token = S.flashToken
+		local dur = L.flashSeconds(o.reduced == true, S.speed)
+		if type(o.sound) == "function" then
+			pcall(o.sound, "special_ready")
+		end
+		S.sVeil.Visible = true
+		local gen = S.skipGen
+		task.spawn(function()
+			local t0 = os.clock()
+			while S.alive and S.flashToken == token do
+				local a = (os.clock() - t0) / math.max(0.02, dur)
+				if S.skipGen ~= gen then
+					a = 1
+				end
+				local f = L.specialFlash(a)
+				pcall(function()
+					S.sVeil.BackgroundTransparency = f.veilTransparency
+					S.sScale.Scale = o.reduced == true and 1 or f.scale
+				end)
+				if a >= 1 then
+					break
+				end
+				task.wait(0.03)
+			end
+			if S.alive and S.flashToken == token then
+				pcall(function()
+					S.sVeil.Visible = false
+					S.sVeil.BackgroundTransparency = 1
+					S.sScale.Scale = 1
+				end)
+			end
+		end)
 	end
 	local function setPips(c, mu)
 		local info = L.chargePips(mu and mu.charge, mu and mu.chargeMax)
@@ -578,22 +658,167 @@ function BattleScene.create(o)
 			c.pulseTween = tween(last, 0.45, { Size = UDim2.fromOffset(14, 14) }, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 		end
 	end
-	local function updateTray(sd)
-		local bench = L.bench(sd)
-		for i, s in ipairs(S.slots) do
-			local e = bench[i]
-			s.index = e and e.alive and e.index or nil
-			s.btn.Visible = e ~= nil
-			if e then
-				local def = Config.PETS[e.p]
-				local emoji = def and def.emoji or "?"
-				s.btn.Text = e.alive and ("🔁 " .. emoji .. "\n" .. e.hp) or ("💀 " .. emoji)
-				s.btn.BackgroundColor3 = rgb(e.alive and U.swap or U.specialOff)
-				s.btn.AutoButtonColor = e.alive
+	-- Le bouton « Changer » n'est actif que s'il reste au moins un pet vivant en réserve.
+	local function updateSwapButton(sd)
+		local any = false
+		for _, e in ipairs(L.bench(sd)) do
+			if e.alive then
+				any = true
 			end
 		end
-		S.btn.swap.AutoButtonColor = #bench > 0
-		S.btn.swap.BackgroundColor3 = rgb(#bench > 0 and U.swap or U.specialOff)
+		S.swapAny = any
+		S.btn.swap.AutoButtonColor = any
+		S.btn.swap.BackgroundColor3 = rgb(any and U.swap or U.specialOff)
+		S.btn.swap.TextColor3 = rgb(any and U.swapText or U.offText)
+	end
+
+	-- Pastilles d'état d'un camp (1 = joueur, 2 = adversaire) : icône + durée, couleur propre à chaque état, rien pour un pet K.O.
+	local function setPills(sideIdx, u)
+		local list = L.statusPills(u)
+		S.pillCount[sideIdx] = #list
+		S.pillList[sideIdx] = list
+		S.layoutPills()
+		if S.tipSide == sideIdx and #list == 0 then
+			S.hideTip()
+		end
+	end
+	function S.hideTip()
+		S.tipToken = (S.tipToken or 0) + 1
+		S.tipSide = nil
+		S.tip.Visible = false
+	end
+	-- Info-bulle d'une pastille : icône, nom et durée (BattleLayout.pillDetail) ; disparaît seule après TIP_SECONDS ou au toucher suivant.
+	function S.showTip(sideIdx, i)
+		local p = S.pills[sideIdx][i]
+		if not (p and p.data and S.alive and not S.dimmed) then
+			return
+		end
+		S.tipToken = (S.tipToken or 0) + 1
+		local token = S.tipToken
+		local vw, vh = viewportSize()
+		vw, vh = L.viewport(vw, vh)
+		local r = S.pillLay and S.pillLay[sideIdx].rects[i] or nil
+		local lines = 1
+		for _ in string.gmatch(p.data.detail, "\n") do
+			lines = lines + 1
+		end
+		local w, h = math.min(300, vw - 16), 20 + 24 * lines
+		S.tip.Text = p.data.detail
+		S.tip.Size = UDim2.fromOffset(w, h)
+		local x = math.max(8, math.min(vw - 8 - w, (r and r.x or 8) - 8))
+		local y = sideIdx == 2 and ((r and (r.y + r.h) or 0) + 4) or ((r and r.y or 0) - 4 - h)
+		S.tip.Position = UDim2.fromOffset(x, math.max(0, math.min(vh - h, y)))
+		S.tip.Visible = true
+		S.tipSide = sideIdx
+		task.delay(L.TIP_SECONDS, function()
+			if S.alive and S.tipToken == token then
+				S.hideTip()
+			end
+		end)
+	end
+
+	-- Écran dédié « Changer » : une ligne par pet de l'équipe (nom, niveau, PV chiffrés et barre, charge du spécial, état). Pet K.O. : grisé, non cliquable ; pet au combat :
+	-- affiché, non cliquable ; les autres envoient « swapN » (intention seule, le serveur revalide). Construit à l'ouverture, détruit à la fermeture (aucune instance qui traîne).
+	function S.closeSwap()
+		local ui = S.swapUi
+		if not ui then
+			return
+		end
+		S.swapUi = nil
+		for _, c in ipairs(ui.conns or {}) do
+			pcall(function()
+				c:Disconnect()
+			end)
+		end
+		pcall(function()
+			ui.frame:Destroy()
+		end)
+		release(ui.count)
+	end
+	function S.openSwap()
+		if S.swapUi or S.dimmed or not S.alive or not S.lastView or not S.swapAny then
+			return
+		end
+		local rows = L.swapRows(S.lastView.sides[1])
+		if #rows == 0 then
+			return
+		end
+		S.hideTip()
+		local vw, vh = viewportSize()
+		local Rs = L.swapRects(vw, vh, o.safe, #rows)
+		local before = S.used
+		local okOpen, ui = pcall(function()
+			local px, py = Rs.panel.x, Rs.panel.y
+			local function rel(r)
+				return { x = r.x - px, y = r.y - py, w = r.w, h = r.h }
+			end
+			local function place(inst, r)
+				inst.Position = UDim2.fromOffset(r.x, r.y)
+				inst.Size = UDim2.fromOffset(r.w, r.h)
+			end
+			local function label(parent, props)
+				props.BackgroundTransparency = 1
+				props.Font = FONT
+				props.TextColor3 = props.TextColor3 or rgb(U.text)
+				return make("TextLabel", props, parent)
+			end
+			local frame = make("Frame", { Name = "SwapScreen", BackgroundColor3 = rgb(U.card), BackgroundTransparency = 0.04, BorderSizePixel = 0, ZIndex = 14, Active = true }, S.root)
+			place(frame, Rs.panel)
+			S.swapTmp = frame
+			local u = { frame = frame, rows = {}, conns = {} }
+			local function conn(sig, fn)
+				u.conns[#u.conns + 1] = sig:Connect(fn)
+			end
+			local title = label(frame, { Name = "SwapTitle", TextSize = 18, Text = "🔁 Changer de pet", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 15 })
+			place(title, rel(Rs.title))
+			local note = label(frame, { Name = "SwapNote", TextSize = 12, Text = "Changer remplace ton action et passe en premier.", TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = rgb(U.muted), ZIndex = 15 })
+			place(note, rel(Rs.note))
+			for i, row in ipairs(rows) do
+				local def = Config.PETS[row.p]
+				local bg = row.state == "ready" and U.swap or (row.state == "active" and U.rowActive or U.specialOff)
+				local fg = row.state == "ready" and U.swapText or (row.state == "active" and U.text or U.offText)
+				local b = make("TextButton", { Name = "SwapRow" .. row.index, Font = FONT, TextSize = 13, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, AutoButtonColor = row.clickable, Active = row.clickable, BackgroundColor3 = rgb(bg), TextColor3 = rgb(fg), ZIndex = 15,
+					Text = " " .. (def and (def.emoji .. " " .. def.name) or "?") .. " · " .. row.level .. " · " .. row.tag .. "\n " .. row.hpText .. " PV · " .. row.chargeText .. " " .. row.pipsText }, frame)
+				make("UICorner", { CornerRadius = UDim.new(0, 10) }, b)
+				local rr = rel(Rs.rows[i])
+				place(b, rr)
+				local barBg = make("Frame", { Name = "SwapHpBack", BackgroundColor3 = rgb(U.hpBack), BorderSizePixel = 0, Position = UDim2.fromOffset(8, rr.h - 9), Size = UDim2.fromOffset(rr.w - 16, 5), ZIndex = 16 }, b)
+				make("Frame", { Name = "SwapHpFill", BackgroundColor3 = rgb(L.hpColor(row.frac)), BorderSizePixel = 0, Size = UDim2.fromScale(row.frac, 1), ZIndex = 17 }, barBg)
+				u.rows[i] = b
+				local index, clickable = row.index, row.clickable
+				conn(b.Activated, function()
+					if clickable and S.swapUi == u then -- jamais un pet K.O. ni le pet déjà au combat
+						S.closeSwap()
+						if type(o.sound) == "function" then
+							pcall(o.sound, "click")
+						end
+						o.fire("battleAct", "swap" .. index)
+						if type(o.onChosen) == "function" then
+							o.onChosen()
+						end
+					elseif S.swapUi == u and type(o.sound) == "function" then
+						pcall(o.sound, "refuse")
+					end
+				end)
+			end
+			local back = make("TextButton", { Name = "SwapBack", Font = FONT, TextSize = 15, Text = "↩ Retour", AutoButtonColor = true, BackgroundColor3 = rgb(U.flee), TextColor3 = rgb(U.fleeText), ZIndex = 15 }, frame)
+			make("UICorner", { CornerRadius = UDim.new(0, 10) }, back)
+			place(back, rel(Rs.back))
+			conn(back.Activated, function()
+				S.closeSwap()
+			end)
+			return u
+		end)
+		if okOpen and ui then
+			ui.count = S.used - before
+			S.swapUi = ui
+		else
+			pcall(function()
+				S.swapTmp:Destroy()
+			end)
+			release(S.used - before)
+		end
+		S.swapTmp = nil
 	end
 
 	-- Applique la vue du serveur (PV, niveaux, points d'état, charge, créatures). `info.delay` : retard (s) du remplacement d'une créature (laisse jouer les coups).
@@ -616,9 +841,28 @@ function BattleScene.create(o)
 			local mu = me.units[me.active]
 			setPips(S.meCard, mu)
 			local ss = o.specialState and mu and o.specialState(mu) or { text = "Spécial", ready = true }
-			setSpecialButton(L.specialButton(ss))
-			updateTray(me)
+			local sb = L.specialButton(ss)
+			setSpecialButton(sb)
+			-- flash : seulement quand la charge du MÊME pet devient pleine (jamais au changement de pet ni à la 1re vue)
+			local curKey = mu and (tostring(mu.p) .. ":" .. tostring(me.active)) or nil
+			local cur = { key = curKey, full = type(mu) == "table" and L.chargePips(mu.charge, mu.chargeMax).ready == true }
+			local trans = L.specialTransition(S.specialPrev, cur)
+			S.specialPrev = cur
+			if trans == "flash" and not view.over then
+				if delay > 0 then -- le flash attend la fin des coups du tour
+					task.delay(delay, function()
+						if S.alive and not S.dimmed then
+							S.flashSpecial()
+						end
+					end)
+				else
+					S.flashSpecial()
+				end
+			end
+			updateSwapButton(me)
 			S.setTray(false)
+			setPills(1, mu)
+			setPills(2, foe.units[foe.active])
 			for side = 1, 2 do
 				local sd = view.sides[side]
 				local u = sd.units[sd.active]
@@ -771,6 +1015,14 @@ function BattleScene.create(o)
 		local gen = S.skipGen
 		S.hitAt = {}
 		local step = L.animSeconds(0.6, S.speed)
+		-- sons du tour (Config.SOUNDS seulement) : attaque = son du type, spécial = special_hit, changement voulu = click ; BattleUi laisse les effets de type jouer les attaques (attackSounds = false)
+		for _, sn in ipairs(L.soundPlan(Config, events, { typeOf = function(p) return Battle.SPECIES_TYPE and Battle.SPECIES_TYPE[p] or nil end, speed = S.speed, attackSounds = o.attackSounds ~= false })) do
+			task.delay(sn.at, function()
+				if S.alive and S.skipGen == gen and type(o.sound) == "function" then
+					pcall(o.sound, sn.key)
+				end
+			end)
+		end
 		for _, ev in ipairs(events or {}) do
 			local cue = L.cue(ev)
 			if cue then
@@ -786,9 +1038,6 @@ function BattleScene.create(o)
 					pcall(function()
 						if cue.anim == "attack" then
 							lunge(cue.actor)
-							if type(o.sound) == "function" then
-								pcall(o.sound, cue.special and "special_hit" or "hit")
-							end
 							if cue.message then
 								popup(cue.target, cue.message.icon .. " " .. cue.message.text, cue.message.rgb, 18, 26, 54)
 							end
@@ -861,12 +1110,22 @@ function BattleScene.create(o)
 		end
 		S.btn.skip.Visible = not on and S.canSkip
 		S.logFrame.Visible = not on
-		S.tray.Visible = false
+		S.closeSwap()
+		S.hideTip()
+		S.chargeBar.Visible = not on and S.specialReady ~= true
+		for side = 1, 2 do
+			for _, p in ipairs(S.pills[side]) do
+				p.btn.Visible = not on and p.data ~= nil
+			end
+		end
 	end
 
-	function S.setTray(v) -- le plateau remplace le journal tant qu'il est ouvert
-		S.tray.Visible = v == true and not S.dimmed
-		S.logFrame.Visible = not S.tray.Visible and not S.dimmed
+	function S.setTray(v) -- ouvre (true) ou ferme (false) l'écran « Changer »
+		if v == true then
+			S.openSwap()
+		else
+			S.closeSwap()
+		end
 	end
 	local function act(action)
 		if not S.alive or S.dimmed then
@@ -905,15 +1164,28 @@ function BattleScene.create(o)
 		if S.dimmed then
 			return
 		end
-		S.setTray(not S.tray.Visible)
-	end)
-	for i, s in ipairs(S.slots) do
-		conn(s.btn.Activated, function()
-			if s.index then
-				S.setTray(false)
-				act("swap" .. s.index)
+		if S.swapUi then
+			S.closeSwap()
+		elseif S.swapAny then
+			if type(o.sound) == "function" then
+				pcall(o.sound, "click")
 			end
-		end)
+			S.openSwap()
+		elseif type(o.sound) == "function" then -- plus aucun pet vivant en réserve : rien à ouvrir
+			pcall(o.sound, "refuse")
+		end
+	end)
+	for side = 1, 2 do -- toucher une pastille d'état : info-bulle (icône, nom, durée) ; la même pastille la referme
+		for i, p in ipairs(S.pills[side]) do
+			conn(p.btn.Activated, function()
+				if S.tip.Visible and S.tipSide == side and S.tipIndex == i then
+					S.hideTip()
+				else
+					S.showTip(side, i)
+					S.tipIndex = i
+				end
+			end)
+		end
 	end
 	conn(S.btn.speed.Activated, function() -- 1x -> 2x -> 3x -> 1x ; mémorisé par l'appelant (réglage local)
 		local v = L.speedNext(S.speed)
@@ -986,6 +1258,7 @@ function BattleScene.create(o)
 		if not S.alive then
 			return
 		end
+		pcall(S.closeSwap) -- coupe les connexions de l'écran « Changer » s'il est ouvert
 		S.alive = false
 		for _, c in ipairs(S.conns) do
 			pcall(function()

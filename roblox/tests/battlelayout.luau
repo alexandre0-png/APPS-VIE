@@ -513,18 +513,20 @@ return function(env)
 		check("Spécial prêt : envoie « battleAct » / « skill » (le serveur revalide)", #fired == 1 and fired[1][1] == "battleAct" and fired[1][2] == "skill")
 		fired = {}
 		RT.fire(btn("Swap"), "Activated")
-		local tray = findAll(gui, "SwapTray")[1]
-		check("Changer : ouvre le plateau de réserve (2 pets en réserve visibles, PV affichés) sans rien envoyer", tray.Visible == true and #fired == 0 and findAll(gui, "SwapSlot1")[1].Visible == true and findAll(gui, "SwapSlot2")[1].Visible == true and findAll(gui, "SwapSlot3")[1].Visible == false and string.find(findAll(gui, "SwapSlot1")[1].Text, "🔁", 1, true) ~= nil)
-		RT.fire(findAll(gui, "SwapSlot2")[1], "Activated")
-		check("Plateau : toucher un pet vivant envoie « swapN » (N = son indice) et referme le plateau", #fired == 1 and fired[1][1] == "battleAct" and fired[1][2] == "swap3" and tray.Visible == false)
+		local screen = findAll(gui, "SwapScreen")[1]
+		check("Changer : ouvre l'écran dédié (une ligne par pet : PV et charge affichés, pet au combat marqué) sans rien envoyer", screen ~= nil and #fired == 0 and #findAll(gui, "SwapRow1") == 1 and #findAll(gui, "SwapRow3") == 1 and string.find(findAll(gui, "SwapRow3")[1].Text, "PV", 1, true) ~= nil and string.find(findAll(gui, "SwapRow3")[1].Text, "Charge", 1, true) ~= nil and string.find(findAll(gui, "SwapRow1")[1].Text, "Au combat", 1, true) ~= nil)
+		RT.fire(findAll(gui, "SwapRow3")[1], "Activated")
+		check("Écran Changer : toucher un pet vivant envoie « swapN » (N = son indice) et referme l'écran", #fired == 1 and fired[1][1] == "battleAct" and fired[1][2] == "swap3" and #findAll(gui, "SwapScreen") == 0)
 		-- un pet K.O. en réserve n'est pas sélectionnable
 		local v3 = Battle.view(st)
 		v3.sides[1].units[3].hp = 0
 		sc.update(v3, nil)
 		fired = {}
 		RT.fire(btn("Swap"), "Activated")
-		RT.fire(findAll(gui, "SwapSlot2")[1], "Activated")
-		check("Plateau : un pet K.O. (💀) n'envoie rien", #fired == 0 and string.find(findAll(gui, "SwapSlot2")[1].Text, "💀", 1, true) ~= nil)
+		RT.fire(findAll(gui, "SwapRow3")[1], "Activated")
+		check("Écran Changer : un pet K.O. (💀) n'envoie rien", #fired == 0 and string.find(findAll(gui, "SwapRow3")[1].Text, "💀", 1, true) ~= nil)
+		RT.fire(findAll(gui, "SwapBack")[1], "Activated")
+		check("Écran Changer : « Retour » referme l'écran sans rien envoyer", #fired == 0 and #findAll(gui, "SwapScreen") == 0)
 		fired = {}
 		RT.fire(btn("Flee"), "Activated")
 		check("Fuir : un premier appui demande confirmation (« Sûr ? ») sans rien envoyer", #fired == 0 and btn("Flee").Text == "Sûr ?")

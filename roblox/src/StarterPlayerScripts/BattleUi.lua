@@ -223,7 +223,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 						if text and not SC.scene then -- en scène face à face, le message de type est affiché par la scène (avant le nombre)
 							fx.TypeFx.floatText(gui, text, rgb, to.X, to.Y - 28)
 						end
-						if readySoon then
+						if readySoon and not SC.scene then -- en scène face à face, le flash du bouton Spécial joue « special_ready » quand la charge est pleine
 							FX.sound("special_ready")
 						end
 					end)
@@ -445,6 +445,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 		local ok, sc = pcall(fx.BattleScene.create, {
 			gui = gui, Config = Config, Battle = Battle, Layout = fx.BattleLayout, player = player, payload = p, view = view, foeName = foeName, floor = lastFloor,
 			reduced = fx.reduced == true, iconUrl = fx.iconUrl, sound = FX.sound,
+			attackSounds = not (FX.on and Config.BATTLE_FX.typeFx and fx.TypeFx and fx.TypeFxData), -- sinon les effets de type jouent déjà le son d'attaque (jamais deux fois)
 			speed = PREFS.speed, canSkip = fx.BattleLayout.skipAvailable(PREFS.seen),
 			onSpeed = function(v)
 				PREFS.speed = v
@@ -794,6 +795,11 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 					end
 					if r.capped then
 						lines[#lines + 1] = "Plafond de trophées du jour atteint en direct."
+					end
+				end
+				if type(fx) == "table" and fx.BattleLayout and not p.duel then -- XP des pets : seulement si le message « end » du serveur la contient (aucune estimation côté client)
+					for _, l in ipairs(fx.BattleLayout.xpLines(p, Config, Battle.PetXp)) do
+						lines[#lines + 1] = l
 					end
 				end
 				if r.egg then

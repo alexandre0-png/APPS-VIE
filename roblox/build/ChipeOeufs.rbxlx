@@ -17253,7 +17253,8 @@ return Ranked
 --   * composition interne des cartes (nom, niveau, barre de PV, texte de PV, points d'état de l'équipe, pastilles de charge du spécial) ;
 --   * scène 3D : positions des deux socles lumineux, caméra fixe en léger angle cadrée sur la zone libre entre les cartes, sable ou herbe selon le lieu ;
 --   * textes et couleurs (PV « 260/260 », points d'état, charge du spécial 0..5, couleur de barre) et signaux d'animation tirés des événements du moteur ;
---   * plafond d'instances : estimation du coût de la scène, décor réduit pour rester sous MAX_INSTANCES (mobile : moins d'effets).
+--   * plafond d'instances : estimation du coût de la scène, décor réduit pour rester sous MAX_INSTANCES (mobile : moins d'effets) ;
+--   * états sous les cartes (pastilles), écran « Changer », flash du spécial, sons par action (Config.SOUNDS seulement), XP de fin (message du serveur seulement).
 -- Ne lit que ce que le serveur envoie déjà (vue Battle.view, événements, payload « start »). Pas de += / -= / continue, pas de math.atan2 (lanceur lupa).
 local BattleLayout = {}
 
@@ -17282,6 +17283,7 @@ BattleLayout.UI = {
 	log = { 16, 26, 32 }, status = { 255, 226, 140 },
 	darkText = { 14, 28, 18 }, lightText = { 244, 244, 252 }, fleeText = { 40, 8, 8 }, swapText = { 14, 20, 30 }, offText = { 220, 222, 232 },
 	meChip = { 74, 163, 255 }, foeChip = { 255, 107, 107 },
+	rowActive = { 58, 72, 86 }, specialFill = { 78, 88, 124 },
 }
 -- Couleur du socle lumineux par type (le type est « Nature » ou « Plante » selon la source).
 BattleLayout.TYPE_COLOR = {
@@ -17812,7 +17814,359 @@ function BattleLayout.textPairs()
 		{ "super efficace", BattleLayout.efficacy(1.5).rgb, U.log }, { "efficace", BattleLayout.efficacy(1.25).rgb, U.log },
 		{ "peu efficace", BattleLayout.efficacy(0.8).rgb, U.log }, { "pas très efficace", BattleLayout.efficacy(0.6).rgb, U.log }, { "neutre", BattleLayout.efficacy(1).rgb, U.log },
 		{ "soin", U.hp, U.log },
+		{ "pastille étourdi", BattleLayout.STATUS_UI.stun.fg, BattleLayout.STATUS_UI.stun.bg }, { "pastille garde", BattleLayout.STATUS_UI.guard.fg, BattleLayout.STATUS_UI.guard.bg },
+		{ "pastille concentration", BattleLayout.STATUS_UI.focus.fg, BattleLayout.STATUS_UI.focus.bg }, { "info-bulle d'état", U.text, U.log }, { "pastille +n", BattleLayout.STATUS_MORE.fg, BattleLayout.STATUS_MORE.bg },
+		{ "Changer : pet disponible", U.swapText, U.swap }, { "Changer : pet au combat", U.text, U.rowActive }, { "Changer : pet K.O.", U.offText, U.specialOff },
+		{ "Spécial en charge (remplie)", U.offText, U.specialFill }, { "Changer : titre", U.text, U.card }, { "Changer : note", U.muted, U.card },
 	}
+end
+
+---------------------------------------------------------------- états sous les cartes, écran « Changer », flash du spécial, sons, XP de fin
+
+-- États que le moteur (Battle.view, lot 12A) expose réellement : `stun` (nombre de tours à passer), `guard` (booléen : les prochains coups reçus sont réduits ; le
+-- nombre de coups restants n'est PAS dans la vue) et `focus` (nombre de tours d'attaque +40 %). Le moteur n'a ni brûlure, ni gel d'état (le spécial « Gel » retire
+-- seulement de la charge), ni autre état : AUCUN n'est inventé ici. Chaque pastille porte une icône et un chiffre, jamais la couleur seule ; la durée est lue au toucher.
+BattleLayout.STATUS_ORDER = { "stun", "guard", "focus" }
+BattleLayout.STATUS_UI = {
+	stun = { icon = "💫", label = "Étourdi", bg = { 255, 226, 140 }, fg = { 30, 24, 0 } },
+	guard = { icon = "🛡", label = "Garde", bg = { 120, 190, 255 }, fg = { 8, 20, 38 } },
+	focus = { icon = "⚡", label = "Concentration", bg = { 255, 170, 70 }, fg = { 38, 20, 0 } },
+}
+BattleLayout.PILL_W, BattleLayout.PILL_H = 46, 44 -- chaque pastille est aussi sa zone tactile (44 px de haut)
+BattleLayout.STATUS_MORE = { bg = { 230, 230, 238 }, fg = { 20, 20, 30 } } -- pastille « +n » (états regroupés faute de place)
+BattleLayout.PILL_GAP = 4
+BattleLayout.MAX_PILLS = 3
+BattleLayout.TIP_SECONDS = 3 -- l'info-bulle d'une pastille disparaît seule après 3 s
+
+-- Pastilles d'une unité de la vue : { { key, icon, label, turns (nombre ou nil), text, bg, fg } }, dans l'ordre stun, guard, focus ; unité KO ou invalide : aucune.
+function BattleLayout.statusPills(u)
+	local out = {}
+	if type(u) ~= "table" or not isNum(u.hp) or u.hp <= 0 then
+		return out
+	end
+	local U = BattleLayout.STATUS_UI
+	local function add(key, turns)
+		local d = U[key]
+		out[#out + 1] = { key = key, icon = d.icon, label = d.label, turns = turns, text = d.icon .. (turns and (" " .. turns) or ""), bg = d.bg, fg = d.fg }
+	end
+	if isNum(u.stun) and u.stun > 0 then
+		add("stun", clamp(math.floor(u.stun), 1, 99))
+	end
+	if u.guard == true then
+		add("guard", nil)
+	end
+	if isNum(u.focus) and u.focus > 0 then
+		add("focus", clamp(math.floor(u.focus), 1, 99))
+	end
+	return out
+end
+
+local function plural(n, one, many)
+	return n .. " " .. (n > 1 and many or one)
+end
+
+-- Texte affiché au toucher d'une pastille : icône, nom, durée. `Battle` (facultatif) fournit le bonus de concentration réel (Battle.SKILLS.focus.boost).
+function BattleLayout.pillDetail(pill, Battle)
+	if type(pill) ~= "table" then
+		return ""
+	end
+	if pill.key == "stun" then
+		local n = isNum(pill.turns) and pill.turns or 1
+		return pill.icon .. " Étourdi : passe " .. (n > 1 and ("ses " .. n .. " prochains tours") or "son prochain tour")
+	elseif pill.key == "guard" then
+		return pill.icon .. " Garde : les prochains coups reçus font moins de dégâts"
+	elseif pill.key == "focus" then
+		local n = isNum(pill.turns) and pill.turns or 1
+		local boost = type(Battle) == "table" and type(Battle.SKILLS) == "table" and type(Battle.SKILLS.focus) == "table" and Battle.SKILLS.focus.boost or 1.4
+		return pill.icon .. " Concentration : attaque +" .. math.floor((boost - 1) * 100 + 0.5) .. " % pendant " .. plural(n, "tour", "tours")
+	end
+	return ""
+end
+
+-- Rectangles des `n` pastilles (au plus MAX_PILLS) d'un camp : camp 2 (adversaire) sous l'ordre du tour, alignées à droite sous la carte ; camp 1 (joueur) au-dessus de
+-- sa carte, alignées à gauche. `R` = BattleLayout.rects(...). Chaque rectangle fait PILL_W x PILL_H (>= 44 px de haut) et sert aussi de zone tactile.
+function BattleLayout.pillRects(side, R, n)
+	local count = clamp(int(n, 0), 0, BattleLayout.MAX_PILLS)
+	local W, H, G = BattleLayout.PILL_W, BattleLayout.PILL_H, BattleLayout.PILL_GAP
+	local out = {}
+	for i = 1, count do
+		if side == 2 then
+			local right = R.foeCard.x + R.foeCard.w
+			out[i] = rect(right - i * W - (i - 1) * G, R.queue.y + R.queue.h + G, W, H)
+		else
+			out[i] = rect(R.meCard.x + (i - 1) * (W + G), R.meCard.y - G - H, W, H)
+		end
+	end
+	return out
+end
+
+-- Placement des pastilles des deux camps sans AUCUNE superposition : pour chaque camp (adversaire d'abord) on garde les premiers emplacements de pillRects qui sont dans la zone
+-- utile et libres (ni carte, ni journal, ni bouton, ni vitesse, ni « Passer », ni ordre du tour, ni pastille déjà posée). S'il y a plus d'états que de place, la dernière pastille
+-- devient une pastille « +n » qui regroupe le reste (son info-bulle les détaille tous) : aucun état n'est perdu tant qu'une place existe. nFoe / nMe = nombre d'états de chaque camp.
+-- Retourne { [1] = { rects, cap, shown, overflow }, [2] = { ... } } ; `shown` pastilles à afficher, `overflow` > 0 si la dernière est une pastille « +n ».
+function BattleLayout.pillLayout(R, nFoe, nMe)
+	local obstacles = { R.foeCard, R.meCard, R.log, R.actions.attack, R.actions.special, R.actions.swap, R.actions.flee, R.speed, R.skip, R.queue }
+	local placed = {}
+	local out = {}
+	local function free(r)
+		local a = R.area
+		if r.x < a.x - 1e-6 or r.y < a.y - 1e-6 or r.x + r.w > a.x + a.w + 1e-6 or r.y + r.h > a.y + a.h + 1e-6 then
+			return false
+		end
+		for _, o in ipairs(obstacles) do
+			if BattleLayout.overlap(r, o) then
+				return false
+			end
+		end
+		for _, o in ipairs(placed) do
+			if BattleLayout.overlap(r, o) then
+				return false
+			end
+		end
+		return true
+	end
+	for _, side in ipairs({ 2, 1 }) do
+		local n = clamp(int(side == 2 and nFoe or nMe, 0), 0, BattleLayout.MAX_PILLS)
+		local all = BattleLayout.pillRects(side, R, BattleLayout.MAX_PILLS)
+		local cap = 0
+		for i = 1, BattleLayout.MAX_PILLS do
+			if free(all[i]) then
+				cap = i
+			else
+				break
+			end
+		end
+		local shown = math.min(n, cap)
+		local rects = {}
+		for i = 1, shown do
+			rects[i] = all[i]
+			placed[#placed + 1] = all[i]
+		end
+		out[side] = { rects = rects, cap = cap, shown = shown, overflow = (n > cap and cap >= 1) and (n - cap + 1) or 0 }
+	end
+	return out
+end
+
+-- Contenu des `shown` pastilles à afficher pour la liste `pills` (BattleLayout.statusPills) : une pastille par état, ou, en cas de manque de place, les premières puis une
+-- pastille « +n » qui regroupe les états restants. Chaque élément : { text, bg, fg, detail, merged }.
+function BattleLayout.pillChips(pills, shown, Battle)
+	local list = type(pills) == "table" and pills or {}
+	local n = #list
+	local show = clamp(int(shown, 0), 0, n)
+	local chips = {}
+	if show >= n then
+		for i = 1, n do
+			chips[i] = { text = list[i].text, bg = list[i].bg, fg = list[i].fg, detail = BattleLayout.pillDetail(list[i], Battle), merged = false }
+		end
+	elseif show >= 1 then
+		for i = 1, show - 1 do
+			chips[i] = { text = list[i].text, bg = list[i].bg, fg = list[i].fg, detail = BattleLayout.pillDetail(list[i], Battle), merged = false }
+		end
+		local details = {}
+		for i = show, n do
+			details[#details + 1] = BattleLayout.pillDetail(list[i], Battle)
+		end
+		chips[show] = { text = "+" .. (n - show + 1), bg = BattleLayout.STATUS_MORE.bg, fg = BattleLayout.STATUS_MORE.fg, detail = table.concat(details, "\n"), merged = true }
+	end
+	return chips
+end
+
+-- Fil des PV de toute l'équipe pour l'écran « Changer » : une ligne par pet (au plus MAX_DOTS) avec indice, PV, charge du spécial, état. Un pet à 0 PV est « ko » (grisé,
+-- jamais cliquable) ; le pet au combat est « active » (affiché, non cliquable : on ne change pas pour soi-même) ; les autres sont « ready » (cliquables).
+function BattleLayout.swapRows(side)
+	local rows = {}
+	local units = type(side) == "table" and type(side.units) == "table" and side.units or {}
+	local active = type(side) == "table" and isNum(side.active) and math.floor(side.active) or 1
+	for i = 1, math.min(#units, BattleLayout.MAX_DOTS) do
+		local u = units[i]
+		if type(u) == "table" then
+			local alive = isNum(u.hp) and u.hp > 0
+			local info = BattleLayout.chargePips(u.charge, u.chargeMax)
+			local state = (not alive) and "ko" or (i == active and "active" or "ready")
+			local pipsText = ""
+			for k = 1, info.max do
+				pipsText = pipsText .. (info.pips[k] and "●" or "○")
+			end
+			local tag = state == "ko" and "💀 K.O." or (state == "active" and "▶ Au combat" or "🔁 Changer")
+			rows[#rows + 1] = {
+				index = i, p = u.p, alive = alive, active = state == "active", state = state, clickable = state == "ready", tag = tag,
+				hp = clamp(int(u.hp, 0), 0, 9999999), maxHp = math.max(0, int(u.maxHp, 0)), frac = BattleLayout.hpFraction(u), hpText = BattleLayout.hpText(u),
+				level = BattleLayout.levelText(u), charge = info.charge, chargeMax = info.max, chargeReady = info.ready, pipsText = pipsText,
+				chargeText = "Charge " .. info.charge .. "/" .. info.max, statuses = BattleLayout.statusPills(u),
+			}
+		end
+	end
+	return rows
+end
+
+BattleLayout.SWAP_ROW_MIN = 44 -- une ligne de l'écran « Changer » est un bouton : 44 px de haut au moins
+BattleLayout.SWAP_ROW_MAX = 64
+
+-- Écran « Changer » : panneau centré (titre, note, lignes, bouton « Retour »). Les lignes passent sur 2 colonnes quand la fenêtre est trop basse pour 44 px chacune.
+-- Retourne { panel, title, note, back, cols, rowH, rows = { rect } } ; tout est dans la zone utile, aucune superposition, boutons >= 44 px (testé sur la matrice d'appareils).
+function BattleLayout.swapRects(vw, vh, safeIn, n)
+	local R = BattleLayout.rects(vw, vh, safeIn)
+	local count = clamp(int(n, 3), 1, BattleLayout.MAX_DOTS)
+	local a = R.area
+	local pw = math.floor(math.min(a.w, 440))
+	local pad, gap = 10, 6
+	local titleH, noteH, backH = 28, 18, BattleLayout.MIN_TOUCH + 4
+	local fixed = pad + titleH + noteH + gap * 2 + backH + pad
+	local ph = math.floor(a.h)
+	local panel = rect(math.floor(a.x + (a.w - pw) / 2), math.floor(a.y), pw, ph)
+	local avail = ph - fixed
+	local cols = 1
+	local rowsPerCol = count
+	local rowH = math.floor((avail - (rowsPerCol - 1) * gap) / rowsPerCol)
+	if rowH < BattleLayout.SWAP_ROW_MIN and count > 1 then
+		cols = 2
+		rowsPerCol = math.ceil(count / 2)
+		rowH = math.floor((avail - (rowsPerCol - 1) * gap) / rowsPerCol)
+	end
+	rowH = clamp(rowH, BattleLayout.SWAP_ROW_MIN, BattleLayout.SWAP_ROW_MAX)
+	local out = { panel = panel, cols = cols, rowH = rowH, rows = {} }
+	out.title = rect(panel.x + pad, panel.y + pad, pw - 2 * pad, titleH)
+	out.note = rect(panel.x + pad, out.title.y + titleH, pw - 2 * pad, noteH)
+	local rowsY = out.note.y + noteH + gap
+	local colW = math.floor((pw - 2 * pad - (cols - 1) * gap) / cols)
+	for i = 1, count do
+		local col = (i - 1) // rowsPerCol
+		local row = (i - 1) % rowsPerCol
+		out.rows[i] = rect(panel.x + pad + col * (colW + gap), rowsY + row * (rowH + gap), colW, rowH)
+	end
+	out.back = rect(panel.x + pad, panel.y + ph - pad - backH, pw - 2 * pad, backH)
+	return out
+end
+
+-- Flash du spécial : déclenché UNIQUEMENT quand la charge du MÊME pet passe de « pas pleine » à « pleine » (jamais au changement de pet ni à la 1re vue).
+-- prev / cur = { key = identité du pet, full = charge pleine ? } (ou nil). Retourne "flash" ou "set" (mise à jour silencieuse).
+function BattleLayout.specialTransition(prev, cur)
+	if type(prev) == "table" and type(cur) == "table" and prev.key ~= nil and prev.key == cur.key and prev.full ~= true and cur.full == true then
+		return "flash"
+	end
+	return "set"
+end
+
+BattleLayout.FLASH_SECONDS = 0.7
+BattleLayout.MAX_FLASH = 1.5 -- aucun flash ne dure plus de 1,5 s, quelle que soit la vitesse choisie
+
+-- Durée réelle du flash : 0,7 s (0,35 s en effets réduits), divisée par la vitesse du combat, jamais au-dessus de MAX_FLASH.
+function BattleLayout.flashSeconds(reduced, speed)
+	local base = reduced == true and BattleLayout.FLASH_SECONDS / 2 or BattleLayout.FLASH_SECONDS
+	return math.min(BattleLayout.MAX_FLASH, BattleLayout.animSeconds(base, speed))
+end
+
+-- Image du flash à l'instant a (0..1) : voile blanc qui s'éteint, bouton qui gonfle de 1 à 1,12 puis revient, contour qui s'estompe ; extrémités exactes.
+function BattleLayout.specialFlash(a)
+	local k = isNum(a) and clamp(a, 0, 1) or 1
+	local pulse = math.sin(math.pi * k)
+	return { veilTransparency = 1 - 0.75 * (1 - k) * (1 - k), scale = 1 + 0.12 * pulse, strokeAlpha = 1 - k }
+end
+
+-- Remplissage du bouton Spécial selon la charge (animation de charge) : fraction 0..1.
+function BattleLayout.chargeFill(charge, max)
+	local info = BattleLayout.chargePips(charge, max)
+	return info.charge / info.max
+end
+
+-- Points de dégradé du bouton Spécial (animation de charge) : le fond multiplie sa couleur par `m` (1 = clair) sur la partie chargée et par `dim` sur le reste, avec une
+-- coupure nette à la fraction de charge. Retourne { { t, m } } avec t strictement croissant de 0 à 1 (exigence de ColorSequence).
+function BattleLayout.chargeStops(frac, dim)
+	local f = isNum(frac) and clamp(frac, 0, 1) or 0
+	local d = isNum(dim) and clamp(dim, 0, 1) or 0.55
+	if f <= 0 then
+		return { { t = 0, m = d }, { t = 1, m = d } }
+	elseif f >= 1 then
+		return { { t = 0, m = 1 }, { t = 1, m = 1 } }
+	end
+	local cut = math.min(0.999, f)
+	return { { t = 0, m = 1 }, { t = cut, m = 1 }, { t = math.min(1, cut + 0.001), m = d }, { t = 1, m = d } }
+end
+
+-- Sons : clés de Config.SOUNDS seulement (aucun identifiant inventé). Une clé est jouable si Config.SOUNDS_ENABLED n'est pas faux et si sa définition a un id non vide.
+function BattleLayout.soundKey(Config, key)
+	if type(Config) ~= "table" or type(key) ~= "string" or Config.SOUNDS_ENABLED == false or type(Config.SOUNDS) ~= "table" then
+		return nil
+	end
+	local def = Config.SOUNDS[key]
+	if type(def) ~= "table" or type(def.id) ~= "string" or def.id == "" then
+		return nil
+	end
+	return key
+end
+
+-- Son de chaque action d'un tour : attaque = son du type de l'attaquant (Config.ATK_SOUND), spécial = special_hit, changement de pet = click. Soin, garde, K.O., étourdissement :
+-- aucun son n'existe dans Config.SOUNDS, donc silence (rien d'inventé). opts = { typeOf = fn(espèce) -> type, speed, attackSounds = false pour laisser les effets de type jouer
+-- les attaques }. Retourne { { at = secondes, key, kind } } aux mêmes instants que les animations de BattleScene.cues (un coup ou un soin tous les 0,6 s à 1x).
+function BattleLayout.soundPlan(Config, events, opts)
+	local o = type(opts) == "table" and opts or {}
+	local out = {}
+	local step = BattleLayout.animSeconds(0.6, o.speed)
+	local k = 0
+	for _, ev in ipairs(type(events) == "table" and events or {}) do
+		local cue = BattleLayout.cue(ev)
+		if cue then
+			local at = step * k
+			local key, kind
+			if cue.anim == "attack" and cue.special == true then
+				key, kind = BattleLayout.soundKey(Config, "special_hit"), "special"
+			elseif cue.anim == "attack" and ev.t == "hit" and o.attackSounds ~= false then
+				local typ = type(o.typeOf) == "function" and o.typeOf(ev.p) or nil
+				key, kind = BattleLayout.soundKey(Config, type(Config) == "table" and type(Config.ATK_SOUND) == "table" and Config.ATK_SOUND[typ] or nil), "attack"
+			elseif cue.anim == "swap" and ev.forced ~= true then
+				key, kind = BattleLayout.soundKey(Config, "click"), "swap"
+			end
+			if key then
+				out[#out + 1] = { at = at, key = key, kind = kind }
+			end
+			if cue.anim == "attack" or cue.anim == "heal" then
+				k = k + 1
+			end
+		end
+	end
+	return out
+end
+
+-- XP du pet à l'écran de fin : lue UNIQUEMENT dans le message « end » du serveur (`xp` ou `rewards.xp`) ; le client ne la calcule pas (le serveur n'envoie ni l'XP avant
+-- le combat ni le détail du barème). Formes acceptées : un nombre (gain par pet de l'équipe) ou une liste { { p = espèce, gain = nombre, total = XP cumulée (facultatif) } }
+-- avec PetXp (facultatif) pour détecter la montée de niveau. Retourne au plus 4 lignes ; valeurs invalides ignorées ; aucune ligne si le serveur n'envoie rien.
+function BattleLayout.xpLines(msg, Config, PetXp)
+	local lines = {}
+	if type(msg) ~= "table" then
+		return lines
+	end
+	local src = msg.xp
+	if src == nil and type(msg.rewards) == "table" then
+		src = msg.rewards.xp
+	end
+	if isNum(src) then
+		if src >= 1 then
+			lines[1] = "⭐ +" .. math.floor(math.min(src, 100000)) .. " XP pour chaque pet de l'équipe"
+		end
+		return lines
+	end
+	if type(src) ~= "table" then
+		return lines
+	end
+	for _, e in ipairs(src) do
+		if #lines >= 4 then
+			break
+		end
+		if type(e) == "table" and isNum(e.gain) and e.gain >= 1 then
+			local def = type(Config) == "table" and type(Config.PETS) == "table" and Config.PETS[e.p] or nil
+			local who = def and (tostring(def.emoji or "") .. " " .. tostring(def.name or "?")) or "⭐ Pet"
+			local line = who .. " : +" .. math.floor(math.min(e.gain, 100000)) .. " XP"
+			if isNum(e.total) and type(PetXp) == "table" and type(PetXp.levelOf) == "function" then
+				local after = PetXp.levelOf(e.total)
+				local before = PetXp.levelOf(math.max(0, e.total - e.gain))
+				if isNum(after) and isNum(before) and after > before then
+					line = line .. " · ⬆ Niv. " .. before .. " → " .. after
+				end
+			end
+			lines[#lines + 1] = line
+		end
+	end
+	return lines
 end
 
 ---------------------------------------------------------------- plafond d'instances
@@ -17825,7 +18179,11 @@ BattleLayout.COST = {
 	pip = 2,
 	button = 4, -- bouton, coin, contour, étiquette de charge
 	log = 5,
-	tray = 1 + 3 * 3, -- plateau de réserve : cadre + 3 boutons (bouton, coin, contour)
+	swapPanel = 6, -- écran « Changer » (construit à l'ouverture, détruit à la fermeture) : cadre, titre, note, bouton Retour (+ coin, contour)
+	swapRow = 4, -- une ligne par pet : bouton, coin, fond et remplissage de la barre de PV
+	pill = 2, -- pastille d'état : bouton + coin (3 par camp au plus)
+	tip = 1, -- info-bulle d'une pastille : une étiquette
+	flash = 5, -- flash et charge du spécial : barre derrière le bouton (cadre, coin, dégradé), échelle, voile
 	ground = 2, -- sol, anneau
 	pedestal = 2, -- socle de pierre, disque néon
 	beam = 1, -- colonne de lumière translucide (néon)
@@ -17848,7 +18206,7 @@ function BattleLayout.plan(opts)
 	local beams = not reduced
 	local decor = reduced and 6 or 12
 	local function estimate(n)
-		local e = C.gui + 2 * C.card + (nMe + nFoe) * C.dot + BattleLayout.CHARGE_MAX * C.pip + 4 * C.button + C.log + C.tray + C.queue + C.speedBtns + C.ground + 2 * C.pedestal + 2 * C.puppet + n * C.pillar + BattleLayout.MAX_POPUPS * C.popup
+		local e = C.gui + 2 * C.card + (nMe + nFoe) * C.dot + BattleLayout.CHARGE_MAX * C.pip + 4 * C.button + C.log + C.swapPanel + nMe * C.swapRow + 2 * BattleLayout.MAX_PILLS * C.pill + C.tip + C.flash + C.queue + C.speedBtns + C.ground + 2 * C.pedestal + 2 * C.puppet + n * C.pillar + BattleLayout.MAX_POPUPS * C.popup
 		if beams then
 			e = e + 2 * C.beam
 		end
@@ -41597,7 +41955,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 						if text and not SC.scene then -- en scène face à face, le message de type est affiché par la scène (avant le nombre)
 							fx.TypeFx.floatText(gui, text, rgb, to.X, to.Y - 28)
 						end
-						if readySoon then
+						if readySoon and not SC.scene then -- en scène face à face, le flash du bouton Spécial joue « special_ready » quand la charge est pleine
 							FX.sound("special_ready")
 						end
 					end)
@@ -41819,6 +42177,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 		local ok, sc = pcall(fx.BattleScene.create, {
 			gui = gui, Config = Config, Battle = Battle, Layout = fx.BattleLayout, player = player, payload = p, view = view, foeName = foeName, floor = lastFloor,
 			reduced = fx.reduced == true, iconUrl = fx.iconUrl, sound = FX.sound,
+			attackSounds = not (FX.on and Config.BATTLE_FX.typeFx and fx.TypeFx and fx.TypeFxData), -- sinon les effets de type jouent déjà le son d'attaque (jamais deux fois)
 			speed = PREFS.speed, canSkip = fx.BattleLayout.skipAvailable(PREFS.seen),
 			onSpeed = function(v)
 				PREFS.speed = v
@@ -42168,6 +42527,11 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 					end
 					if r.capped then
 						lines[#lines + 1] = "Plafond de trophées du jour atteint en direct."
+					end
+				end
+				if type(fx) == "table" and fx.BattleLayout and not p.duel then -- XP des pets : seulement si le message « end » du serveur la contient (aucune estimation côté client)
+					for _, l in ipairs(fx.BattleLayout.xpLines(p, Config, Battle.PetXp)) do
+						lines[#lines + 1] = l
 					end
 				end
 				if r.egg then
@@ -42714,13 +43078,44 @@ function BattleScene.create(o)
 			swap = button("Swap", "🔁 Changer", U.swap, rgb(U.swapText)),
 			flee = button("Flee", "🏃 Fuir", U.flee, rgb(U.fleeText)),
 		}
-		S.tray = make("Frame", { Name = "SwapTray", BackgroundTransparency = 1, Visible = false, ZIndex = 11 }, root)
-		S.slots = {}
-		for i = 1, 3 do
-			local b = make("TextButton", { Name = "SwapSlot" .. i, Font = FONT, TextSize = 14, TextWrapped = true, Text = "", AutoButtonColor = true, BackgroundColor3 = rgb(U.swap), TextColor3 = rgb(U.swapText), ZIndex = 12 }, S.tray)
-			make("UICorner", { CornerRadius = UDim.new(0, 10) }, b)
-			make("UIStroke", { Color = Color3.fromRGB(10, 18, 22), Thickness = 2 }, b)
-			S.slots[i] = { btn = b, index = nil }
+		-- bouton Spécial : barre de charge DERRIÈRE le bouton (un dégradé sur le bouton teinterait aussi son texte), échelle et voile du flash quand la charge devient pleine
+		S.chargeBar = make("Frame", { Name = "ChargeBar", BackgroundColor3 = rgb(U.specialFill), BorderSizePixel = 0, Visible = false, ZIndex = 9 }, root)
+		make("UICorner", { CornerRadius = UDim.new(0, 10) }, S.chargeBar)
+		S.sGrad = make("UIGradient", { Name = "ChargeGradient", Rotation = 0 }, S.chargeBar)
+		S.sScale = make("UIScale", { Name = "SpecialScale", Scale = 1 }, S.btn.special)
+		S.sVeil = make("Frame", { Name = "SpecialFlash", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(255, 255, 255), BackgroundTransparency = 1, BorderSizePixel = 0, Visible = false, ZIndex = 12 }, S.btn.special)
+		-- pastilles d'état sous les cartes (3 par camp au plus : étourdi, garde, concentration) : chacune est aussi sa zone tactile (>= 44 px de haut) et ouvre une info-bulle
+		S.pills = { {}, {} }
+		S.pillCount = { 0, 0 }
+		S.pillList = { {}, {} }
+		for side = 1, 2 do
+			for i = 1, L.MAX_PILLS do
+				local b = make("TextButton", { Name = "StatePill", Font = FONT, TextSize = 15, Text = "", AutoButtonColor = true, Visible = false, BackgroundColor3 = rgb(U.card), TextColor3 = rgb(U.text), ZIndex = 9 }, root)
+				make("UICorner", { CornerRadius = UDim.new(0, 12) }, b)
+				S.pills[side][i] = { btn = b, data = nil }
+			end
+		end
+		S.tip = make("TextLabel", { Name = "StateTip", Font = FONT, TextSize = 13, TextWrapped = true, Text = "", BackgroundColor3 = rgb(U.log), BackgroundTransparency = 0.05, TextColor3 = rgb(U.text), Visible = false, ZIndex = 13 }, root)
+		function S.layoutPills() -- place les pastilles d'après la disposition courante (sans superposition, voir BattleLayout.pillLayout) ; appelée à chaque mise en page et à chaque mise à jour
+			if not S.rects then
+				return
+			end
+			local lay = L.pillLayout(S.rects, S.pillCount[2], S.pillCount[1])
+			S.pillLay = lay
+			for side = 1, 2 do
+				local chips = L.pillChips(S.pillList[side], lay[side].shown, Battle)
+				for i, p in ipairs(S.pills[side]) do
+					local c = chips[i]
+					p.data = c
+					p.btn.Visible = c ~= nil and not S.dimmed
+					if c then
+						p.btn.Text = c.text
+						p.btn.BackgroundColor3 = rgb(c.bg)
+						p.btn.TextColor3 = rgb(c.fg)
+						place(p.btn, lay[side].rects[i])
+					end
+				end
+			end
 		end
 
 		-- vitesse (1x / 2x / 3x), « Passer l'animation » (dès le 2e combat vu) et ordre du tour (3 pastilles sous la carte adverse)
@@ -42777,7 +43172,11 @@ function BattleScene.create(o)
 			for _, k in ipairs({ "attack", "special", "swap", "flee" }) do
 				place(S.btn[k], R.actions[k])
 			end
-			place(S.tray, R.swapTray)
+			place(S.chargeBar, R.actions.special)
+			S.layoutPills()
+			if S.closeSwap then -- changement de taille : l'écran « Changer » se referme (il se reconstruit à la bonne taille à la réouverture)
+				S.closeSwap()
+			end
 			place(S.btn.speed, R.speed)
 			place(S.btn.skip, R.skip)
 			place(S.queueLabel, { x = R.queue.x - 62, y = R.queue.y, w = 58, h = R.queue.h })
@@ -42785,11 +43184,6 @@ function BattleScene.create(o)
 				local d = R.queue.h
 				q.frame.Position = UDim2.fromOffset(R.queue.x + R.queue.w - 3 * d - 2 * 4 + (i - 1) * (d + 4), R.queue.y)
 				q.frame.Size = UDim2.fromOffset(d, d)
-			end
-			local gap = L.GAP
-			local sw = math.floor((R.swapTray.w - 2 * gap) / 3)
-			for i, s in ipairs(S.slots) do
-				place(s.btn, { x = (i - 1) * (sw + gap), y = 0, w = sw, h = R.swapTray.h })
 			end
 			local sc = L.scene(vw, vh, o.safe, ground)
 			S.sc = sc
@@ -43038,12 +43432,62 @@ function BattleScene.create(o)
 		S.log.Text = type(lines) == "table" and table.concat(lines, "\n") or tostring(lines or "")
 	end
 
+	-- Bouton Spécial : texte, prêt ou non, et animation de charge (la partie chargée du fond est claire, le reste sombre ; coupure nette à charge / max).
 	local function setSpecialButton(sb)
 		local b = S.btn.special
 		b.Text = sb.text
 		b.AutoButtonColor = sb.ready
-		b.BackgroundColor3 = rgb(sb.ready and U.special or U.specialOff)
+		b.BackgroundColor3 = rgb(U.special)
+		b.BackgroundTransparency = sb.ready and 0 or 1 -- pas prêt : le fond est la barre de charge placée derrière
 		b.TextColor3 = sb.ready and rgb(U.darkText) or rgb(U.offText)
+		local frac = sb.ready and 1 or L.chargeFill(sb.charge, sb.max)
+		S.chargeFrac = frac
+		S.specialReady = sb.ready == true
+		S.chargeBar.Visible = not sb.ready and not S.dimmed
+		pcall(function()
+			local pts = {}
+			for _, p in ipairs(L.chargeStops(frac, 0.55)) do
+				pts[#pts + 1] = ColorSequenceKeypoint.new(p.t, Color3.new(p.m, p.m, p.m))
+			end
+			S.sGrad.Color = ColorSequence.new(pts)
+		end)
+	end
+	-- Flash du spécial (charge pleine pour le MÊME pet) : voile blanc qui s'éteint, bouton qui gonfle de 12 % puis revient, son « special_ready ». Au plus 1,5 s (0,35 s en
+	-- effets réduits), divisé par la vitesse ; « Passer » le termine ; un seul flash à la fois ; arrêté à la destruction.
+	function S.flashSpecial()
+		S.flashToken = (S.flashToken or 0) + 1
+		local token = S.flashToken
+		local dur = L.flashSeconds(o.reduced == true, S.speed)
+		if type(o.sound) == "function" then
+			pcall(o.sound, "special_ready")
+		end
+		S.sVeil.Visible = true
+		local gen = S.skipGen
+		task.spawn(function()
+			local t0 = os.clock()
+			while S.alive and S.flashToken == token do
+				local a = (os.clock() - t0) / math.max(0.02, dur)
+				if S.skipGen ~= gen then
+					a = 1
+				end
+				local f = L.specialFlash(a)
+				pcall(function()
+					S.sVeil.BackgroundTransparency = f.veilTransparency
+					S.sScale.Scale = o.reduced == true and 1 or f.scale
+				end)
+				if a >= 1 then
+					break
+				end
+				task.wait(0.03)
+			end
+			if S.alive and S.flashToken == token then
+				pcall(function()
+					S.sVeil.Visible = false
+					S.sVeil.BackgroundTransparency = 1
+					S.sScale.Scale = 1
+				end)
+			end
+		end)
 	end
 	local function setPips(c, mu)
 		local info = L.chargePips(mu and mu.charge, mu and mu.chargeMax)
@@ -43062,22 +43506,167 @@ function BattleScene.create(o)
 			c.pulseTween = tween(last, 0.45, { Size = UDim2.fromOffset(14, 14) }, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
 		end
 	end
-	local function updateTray(sd)
-		local bench = L.bench(sd)
-		for i, s in ipairs(S.slots) do
-			local e = bench[i]
-			s.index = e and e.alive and e.index or nil
-			s.btn.Visible = e ~= nil
-			if e then
-				local def = Config.PETS[e.p]
-				local emoji = def and def.emoji or "?"
-				s.btn.Text = e.alive and ("🔁 " .. emoji .. "\n" .. e.hp) or ("💀 " .. emoji)
-				s.btn.BackgroundColor3 = rgb(e.alive and U.swap or U.specialOff)
-				s.btn.AutoButtonColor = e.alive
+	-- Le bouton « Changer » n'est actif que s'il reste au moins un pet vivant en réserve.
+	local function updateSwapButton(sd)
+		local any = false
+		for _, e in ipairs(L.bench(sd)) do
+			if e.alive then
+				any = true
 			end
 		end
-		S.btn.swap.AutoButtonColor = #bench > 0
-		S.btn.swap.BackgroundColor3 = rgb(#bench > 0 and U.swap or U.specialOff)
+		S.swapAny = any
+		S.btn.swap.AutoButtonColor = any
+		S.btn.swap.BackgroundColor3 = rgb(any and U.swap or U.specialOff)
+		S.btn.swap.TextColor3 = rgb(any and U.swapText or U.offText)
+	end
+
+	-- Pastilles d'état d'un camp (1 = joueur, 2 = adversaire) : icône + durée, couleur propre à chaque état, rien pour un pet K.O.
+	local function setPills(sideIdx, u)
+		local list = L.statusPills(u)
+		S.pillCount[sideIdx] = #list
+		S.pillList[sideIdx] = list
+		S.layoutPills()
+		if S.tipSide == sideIdx and #list == 0 then
+			S.hideTip()
+		end
+	end
+	function S.hideTip()
+		S.tipToken = (S.tipToken or 0) + 1
+		S.tipSide = nil
+		S.tip.Visible = false
+	end
+	-- Info-bulle d'une pastille : icône, nom et durée (BattleLayout.pillDetail) ; disparaît seule après TIP_SECONDS ou au toucher suivant.
+	function S.showTip(sideIdx, i)
+		local p = S.pills[sideIdx][i]
+		if not (p and p.data and S.alive and not S.dimmed) then
+			return
+		end
+		S.tipToken = (S.tipToken or 0) + 1
+		local token = S.tipToken
+		local vw, vh = viewportSize()
+		vw, vh = L.viewport(vw, vh)
+		local r = S.pillLay and S.pillLay[sideIdx].rects[i] or nil
+		local lines = 1
+		for _ in string.gmatch(p.data.detail, "\n") do
+			lines = lines + 1
+		end
+		local w, h = math.min(300, vw - 16), 20 + 24 * lines
+		S.tip.Text = p.data.detail
+		S.tip.Size = UDim2.fromOffset(w, h)
+		local x = math.max(8, math.min(vw - 8 - w, (r and r.x or 8) - 8))
+		local y = sideIdx == 2 and ((r and (r.y + r.h) or 0) + 4) or ((r and r.y or 0) - 4 - h)
+		S.tip.Position = UDim2.fromOffset(x, math.max(0, math.min(vh - h, y)))
+		S.tip.Visible = true
+		S.tipSide = sideIdx
+		task.delay(L.TIP_SECONDS, function()
+			if S.alive and S.tipToken == token then
+				S.hideTip()
+			end
+		end)
+	end
+
+	-- Écran dédié « Changer » : une ligne par pet de l'équipe (nom, niveau, PV chiffrés et barre, charge du spécial, état). Pet K.O. : grisé, non cliquable ; pet au combat :
+	-- affiché, non cliquable ; les autres envoient « swapN » (intention seule, le serveur revalide). Construit à l'ouverture, détruit à la fermeture (aucune instance qui traîne).
+	function S.closeSwap()
+		local ui = S.swapUi
+		if not ui then
+			return
+		end
+		S.swapUi = nil
+		for _, c in ipairs(ui.conns or {}) do
+			pcall(function()
+				c:Disconnect()
+			end)
+		end
+		pcall(function()
+			ui.frame:Destroy()
+		end)
+		release(ui.count)
+	end
+	function S.openSwap()
+		if S.swapUi or S.dimmed or not S.alive or not S.lastView or not S.swapAny then
+			return
+		end
+		local rows = L.swapRows(S.lastView.sides[1])
+		if #rows == 0 then
+			return
+		end
+		S.hideTip()
+		local vw, vh = viewportSize()
+		local Rs = L.swapRects(vw, vh, o.safe, #rows)
+		local before = S.used
+		local okOpen, ui = pcall(function()
+			local px, py = Rs.panel.x, Rs.panel.y
+			local function rel(r)
+				return { x = r.x - px, y = r.y - py, w = r.w, h = r.h }
+			end
+			local function place(inst, r)
+				inst.Position = UDim2.fromOffset(r.x, r.y)
+				inst.Size = UDim2.fromOffset(r.w, r.h)
+			end
+			local function label(parent, props)
+				props.BackgroundTransparency = 1
+				props.Font = FONT
+				props.TextColor3 = props.TextColor3 or rgb(U.text)
+				return make("TextLabel", props, parent)
+			end
+			local frame = make("Frame", { Name = "SwapScreen", BackgroundColor3 = rgb(U.card), BackgroundTransparency = 0.04, BorderSizePixel = 0, ZIndex = 14, Active = true }, S.root)
+			place(frame, Rs.panel)
+			S.swapTmp = frame
+			local u = { frame = frame, rows = {}, conns = {} }
+			local function conn(sig, fn)
+				u.conns[#u.conns + 1] = sig:Connect(fn)
+			end
+			local title = label(frame, { Name = "SwapTitle", TextSize = 18, Text = "🔁 Changer de pet", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 15 })
+			place(title, rel(Rs.title))
+			local note = label(frame, { Name = "SwapNote", TextSize = 12, Text = "Changer remplace ton action et passe en premier.", TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = rgb(U.muted), ZIndex = 15 })
+			place(note, rel(Rs.note))
+			for i, row in ipairs(rows) do
+				local def = Config.PETS[row.p]
+				local bg = row.state == "ready" and U.swap or (row.state == "active" and U.rowActive or U.specialOff)
+				local fg = row.state == "ready" and U.swapText or (row.state == "active" and U.text or U.offText)
+				local b = make("TextButton", { Name = "SwapRow" .. row.index, Font = FONT, TextSize = 13, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, AutoButtonColor = row.clickable, Active = row.clickable, BackgroundColor3 = rgb(bg), TextColor3 = rgb(fg), ZIndex = 15,
+					Text = " " .. (def and (def.emoji .. " " .. def.name) or "?") .. " · " .. row.level .. " · " .. row.tag .. "\n " .. row.hpText .. " PV · " .. row.chargeText .. " " .. row.pipsText }, frame)
+				make("UICorner", { CornerRadius = UDim.new(0, 10) }, b)
+				local rr = rel(Rs.rows[i])
+				place(b, rr)
+				local barBg = make("Frame", { Name = "SwapHpBack", BackgroundColor3 = rgb(U.hpBack), BorderSizePixel = 0, Position = UDim2.fromOffset(8, rr.h - 9), Size = UDim2.fromOffset(rr.w - 16, 5), ZIndex = 16 }, b)
+				make("Frame", { Name = "SwapHpFill", BackgroundColor3 = rgb(L.hpColor(row.frac)), BorderSizePixel = 0, Size = UDim2.fromScale(row.frac, 1), ZIndex = 17 }, barBg)
+				u.rows[i] = b
+				local index, clickable = row.index, row.clickable
+				conn(b.Activated, function()
+					if clickable and S.swapUi == u then -- jamais un pet K.O. ni le pet déjà au combat
+						S.closeSwap()
+						if type(o.sound) == "function" then
+							pcall(o.sound, "click")
+						end
+						o.fire("battleAct", "swap" .. index)
+						if type(o.onChosen) == "function" then
+							o.onChosen()
+						end
+					elseif S.swapUi == u and type(o.sound) == "function" then
+						pcall(o.sound, "refuse")
+					end
+				end)
+			end
+			local back = make("TextButton", { Name = "SwapBack", Font = FONT, TextSize = 15, Text = "↩ Retour", AutoButtonColor = true, BackgroundColor3 = rgb(U.flee), TextColor3 = rgb(U.fleeText), ZIndex = 15 }, frame)
+			make("UICorner", { CornerRadius = UDim.new(0, 10) }, back)
+			place(back, rel(Rs.back))
+			conn(back.Activated, function()
+				S.closeSwap()
+			end)
+			return u
+		end)
+		if okOpen and ui then
+			ui.count = S.used - before
+			S.swapUi = ui
+		else
+			pcall(function()
+				S.swapTmp:Destroy()
+			end)
+			release(S.used - before)
+		end
+		S.swapTmp = nil
 	end
 
 	-- Applique la vue du serveur (PV, niveaux, points d'état, charge, créatures). `info.delay` : retard (s) du remplacement d'une créature (laisse jouer les coups).
@@ -43100,9 +43689,28 @@ function BattleScene.create(o)
 			local mu = me.units[me.active]
 			setPips(S.meCard, mu)
 			local ss = o.specialState and mu and o.specialState(mu) or { text = "Spécial", ready = true }
-			setSpecialButton(L.specialButton(ss))
-			updateTray(me)
+			local sb = L.specialButton(ss)
+			setSpecialButton(sb)
+			-- flash : seulement quand la charge du MÊME pet devient pleine (jamais au changement de pet ni à la 1re vue)
+			local curKey = mu and (tostring(mu.p) .. ":" .. tostring(me.active)) or nil
+			local cur = { key = curKey, full = type(mu) == "table" and L.chargePips(mu.charge, mu.chargeMax).ready == true }
+			local trans = L.specialTransition(S.specialPrev, cur)
+			S.specialPrev = cur
+			if trans == "flash" and not view.over then
+				if delay > 0 then -- le flash attend la fin des coups du tour
+					task.delay(delay, function()
+						if S.alive and not S.dimmed then
+							S.flashSpecial()
+						end
+					end)
+				else
+					S.flashSpecial()
+				end
+			end
+			updateSwapButton(me)
 			S.setTray(false)
+			setPills(1, mu)
+			setPills(2, foe.units[foe.active])
 			for side = 1, 2 do
 				local sd = view.sides[side]
 				local u = sd.units[sd.active]
@@ -43255,6 +43863,14 @@ function BattleScene.create(o)
 		local gen = S.skipGen
 		S.hitAt = {}
 		local step = L.animSeconds(0.6, S.speed)
+		-- sons du tour (Config.SOUNDS seulement) : attaque = son du type, spécial = special_hit, changement voulu = click ; BattleUi laisse les effets de type jouer les attaques (attackSounds = false)
+		for _, sn in ipairs(L.soundPlan(Config, events, { typeOf = function(p) return Battle.SPECIES_TYPE and Battle.SPECIES_TYPE[p] or nil end, speed = S.speed, attackSounds = o.attackSounds ~= false })) do
+			task.delay(sn.at, function()
+				if S.alive and S.skipGen == gen and type(o.sound) == "function" then
+					pcall(o.sound, sn.key)
+				end
+			end)
+		end
 		for _, ev in ipairs(events or {}) do
 			local cue = L.cue(ev)
 			if cue then
@@ -43270,9 +43886,6 @@ function BattleScene.create(o)
 					pcall(function()
 						if cue.anim == "attack" then
 							lunge(cue.actor)
-							if type(o.sound) == "function" then
-								pcall(o.sound, cue.special and "special_hit" or "hit")
-							end
 							if cue.message then
 								popup(cue.target, cue.message.icon .. " " .. cue.message.text, cue.message.rgb, 18, 26, 54)
 							end
@@ -43345,12 +43958,22 @@ function BattleScene.create(o)
 		end
 		S.btn.skip.Visible = not on and S.canSkip
 		S.logFrame.Visible = not on
-		S.tray.Visible = false
+		S.closeSwap()
+		S.hideTip()
+		S.chargeBar.Visible = not on and S.specialReady ~= true
+		for side = 1, 2 do
+			for _, p in ipairs(S.pills[side]) do
+				p.btn.Visible = not on and p.data ~= nil
+			end
+		end
 	end
 
-	function S.setTray(v) -- le plateau remplace le journal tant qu'il est ouvert
-		S.tray.Visible = v == true and not S.dimmed
-		S.logFrame.Visible = not S.tray.Visible and not S.dimmed
+	function S.setTray(v) -- ouvre (true) ou ferme (false) l'écran « Changer »
+		if v == true then
+			S.openSwap()
+		else
+			S.closeSwap()
+		end
 	end
 	local function act(action)
 		if not S.alive or S.dimmed then
@@ -43389,15 +44012,28 @@ function BattleScene.create(o)
 		if S.dimmed then
 			return
 		end
-		S.setTray(not S.tray.Visible)
-	end)
-	for i, s in ipairs(S.slots) do
-		conn(s.btn.Activated, function()
-			if s.index then
-				S.setTray(false)
-				act("swap" .. s.index)
+		if S.swapUi then
+			S.closeSwap()
+		elseif S.swapAny then
+			if type(o.sound) == "function" then
+				pcall(o.sound, "click")
 			end
-		end)
+			S.openSwap()
+		elseif type(o.sound) == "function" then -- plus aucun pet vivant en réserve : rien à ouvrir
+			pcall(o.sound, "refuse")
+		end
+	end)
+	for side = 1, 2 do -- toucher une pastille d'état : info-bulle (icône, nom, durée) ; la même pastille la referme
+		for i, p in ipairs(S.pills[side]) do
+			conn(p.btn.Activated, function()
+				if S.tip.Visible and S.tipSide == side and S.tipIndex == i then
+					S.hideTip()
+				else
+					S.showTip(side, i)
+					S.tipIndex = i
+				end
+			end)
+		end
 	end
 	conn(S.btn.speed.Activated, function() -- 1x -> 2x -> 3x -> 1x ; mémorisé par l'appelant (réglage local)
 		local v = L.speedNext(S.speed)
@@ -43470,6 +44106,7 @@ function BattleScene.create(o)
 		if not S.alive then
 			return
 		end
+		pcall(S.closeSwap) -- coupe les connexions de l'écran « Changer » s'il est ouvert
 		S.alive = false
 		for _, c in ipairs(S.conns) do
 			pcall(function()

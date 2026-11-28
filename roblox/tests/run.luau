@@ -11723,7 +11723,7 @@ end)()
 		opts.hook = opts.hook or loopGuard
 		return newRuntime(opts)
 	end }
-	for _, name in ipairs({ "lot13", "lot13_e2e", "lot14", "lot14_e2e", "evolution", "evolveui" }) do -- lot 14 : classé en direct (Ranked pur + PvpLive avec faux nuage, puis vrai Main) ; idée 2 : évolution des pets (pur + vrai Main)
+	for _, name in ipairs({ "lot13", "lot13_e2e", "lot14", "lot14_e2e", "evolution", "evolveui", "battlestates" }) do -- lot 14 : classé en direct (Ranked pur + PvpLive avec faux nuage, puis vrai Main) ; idée 2 : évolution des pets (pur + vrai Main)
 		luau.load(fs.readFile("roblox/tests/" .. name .. ".luau"), { debugName = name })()(env)
 	end
 end)()
