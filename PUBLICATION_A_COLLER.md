@@ -54,7 +54,7 @@ Récupère des œufs au marché, fais-les éclore et collectionne 78 créatures 
 🏰 Le Château : pièges et chevaliers, en solo ou entre amis
 💬 Bugs ou idées : ahzmksupport@gmail.com
 
-Les probabilités de chaque œuf sont affichées dans le jeu. Les achats Robux sont facultatifs : tout s'obtient en jouant.
+Les probabilités de chaque œuf sont affichées dans le jeu. Les achats Robux sont facultatifs : les œufs s'obtiennent aussi en jouant.
 ```
 
 **Genres** : principal Adventure ; secondaires Fantasy, Comedy (selon ce que propose le Creator Hub). **Appareils** : Ordinateur, Téléphone, Tablette. **Joueurs max** : 5 (lieu de jeu 87012762353093) ; hub 115261336085924 = lieu de départ.
