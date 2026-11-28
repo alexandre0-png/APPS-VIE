@@ -2,7 +2,7 @@
 <roblox xmlns:xmime="http://www.w3.org/2005/05/xmlmime" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.roblox.com/roblox.xsd" version="4">
 <Meta name="ExplicitAutoJoints">true</Meta>
 <Item class="Workspace" referent="RBX0"><Properties><string name="Name">Workspace</string><bool name="StreamingEnabled">false</bool><int name="StreamingMinRadius">128</int><int name="StreamingTargetRadius">480</int></Properties></Item>
-<Item class="ReplicatedStorage" referent="RBX56"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX55"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
+<Item class="ReplicatedStorage" referent="RBX57"><Properties><string name="Name">ReplicatedStorage</string></Properties><Item class="Folder" referent="RBX56"><Properties><string name="Name">Shared</string></Properties><Item class="ModuleScript" referent="RBX1"><Properties><string name="Name">Config</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Config
 -- Toutes les données d'équilibrage du jeu. Modifie ici, rien d'autre à toucher.
 local Config = {}
 
@@ -2895,6 +2895,9 @@ Config.SHOWCASE = { enabled = false, origins = { g = true, c = true }, minTier =
 -- Lot graphismes 4 : halos d'œufs (couleur de la rareté, pulsation lente) et bulles de protection, côté client (ReplicatedStorage/EggAura, StarterPlayerScripts/EggAura).
 -- AUCUNE PointLight ; au plus maxHalos / maxBubbles objets (réduits sur mobile), les plus proches à moins de range studs. Valeurs par défaut dans EggAura.DEFAULTS.
 Config.EGG_AURA = { enabled = true, range = 110, maxHalos = 24, maxHalosMobile = 10, maxBubbles = 12, maxBubblesMobile = 6 }
+-- Graphismes 9 : musique par zone (ReplicatedStorage/Music, StarterPlayerScripts/Music). Pistes VIDES tant qu'aucune musique approuvée n'existe : système prêt
+-- mais muet. Format attendu : "rbxassetid://<chiffres>" (piste en boucle, libre de droits, voir A_FAIRE_UTILISATEUR.md « pistes à fournir »). Volume plafonné à 0,3.
+Config.MUSIC = { enabled = true, volume = 0.15, fade = 2.5, interval = 0.5, tracks = { hub = "", arena = "", castle = "" } }
 -- Version publiée (étiquette des événements AnalyticsService « version », I.2) : à changer à chaque publication.
 Config.BUILD = "1.16.0"
 -- Vendeurs PNJ du hub (modèles Blender du lot 30 de la gestion ; repli procédural si le chargement échoue). Écart accepté : 2 vendeurs à 14-22 studs, 6 plus loin.
@@ -19054,7 +19057,96 @@ function UiStyle.shadowStrips(kind)
 end
 
 return UiStyle
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX53"><Properties><string name="Name">EggAura</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/EggAura (lot graphismes 4 : halos d'œufs et bulles de protection). Logique PURE, sans service Roblox.
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX53"><Properties><string name="Name">Music</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Music (graphismes 9 : musique par zone). Logique PURE, sans service Roblox.
+-- Une piste par zone (hub = village et parcelles, arène, château), volume bas, coupée pendant un combat (interface de combat ouverte), fondus enchaînés,
+-- respect de Config.SOUNDS_ENABLED et du volume général du menu Plus (0 = muet). Les identifiants de Config.MUSIC sont VIDES tant qu'aucune piste approuvée
+-- n'existe : le système est prêt mais muet (aucun Sound créé). On n'invente aucun identifiant : une piste doit être de la forme « rbxassetid://<chiffres> ».
+-- Style : compatible lupa (affectations composées et saut de boucle évités), gardes de type avant comparaison.
+local Music = {}
+
+Music.ZONES = { "hub", "arena", "castle" }
+-- Zone d'éclairage (Config.lightingZoneAt) -> zone musicale.
+Music.FROM_LIGHTING = { hub = "hub", plots = "hub", lobby = "hub", arena = "arena", castle = "castle" }
+Music.MAX_VOLUME = 0.3 -- plafond dur : la musique reste en fond
+
+local function finite(v)
+	return type(v) == "number" and v == v and v ~= math.huge and v ~= -math.huge
+end
+
+-- Identifiant de piste valide (rbxassetid://<chiffres>, pas 0) ou nil.
+function Music.trackId(id)
+	if type(id) ~= "string" then
+		return nil
+	end
+	local digits = string.match(id, "^rbxassetid://(%d+)$")
+	if digits and digits ~= "0" and not string.match(digits, "^0+$") then
+		return id
+	end
+	return nil
+end
+
+-- Réglages assainis : { enabled, fade, volume, tracks = { zone = id|nil }, interval }.
+function Music.cfg(Config)
+	local m = type(Config) == "table" and type(Config.MUSIC) == "table" and Config.MUSIC or {}
+	local tracks = {}
+	local src = type(m.tracks) == "table" and m.tracks or {}
+	for _, z in ipairs(Music.ZONES) do
+		tracks[z] = Music.trackId(src[z])
+	end
+	local vol = finite(m.volume) and m.volume or 0.15
+	return {
+		enabled = m.enabled ~= false,
+		fade = finite(m.fade) and m.fade > 0 and m.fade or 2.5,
+		volume = math.min(Music.MAX_VOLUME, math.max(0, vol)),
+		interval = finite(m.interval) and m.interval > 0 and m.interval or 0.5,
+		tracks = tracks,
+	}
+end
+
+-- Zone musicale d'une zone d'éclairage (repli hub).
+function Music.zoneOf(lightingZone)
+	return Music.FROM_LIGHTING[lightingZone] or "hub"
+end
+
+-- Le système a-t-il au moins une piste ? (sinon : prêt mais muet, aucun Sound créé)
+function Music.hasTracks(Config)
+	local c = Music.cfg(Config)
+	for _, z in ipairs(Music.ZONES) do
+		if c.tracks[z] then
+			return true
+		end
+	end
+	return false
+end
+
+-- Volume cible de la piste `zone` : ctx = { zone (zone courante), battle (bool), master (0..1), soundsEnabled (bool) }.
+function Music.target(Config, zone, ctx)
+	local c = Music.cfg(Config)
+	if not c.enabled or type(ctx) ~= "table" or ctx.soundsEnabled == false or ctx.battle == true then
+		return 0
+	end
+	if zone ~= ctx.zone or not c.tracks[zone] then
+		return 0
+	end
+	local master = finite(ctx.master) and math.min(1, math.max(0, ctx.master)) or 1
+	return c.volume * master
+end
+
+-- Un pas de fondu : rapproche `current` de `target` d'au plus (plafond / fade) x dt. Jamais de dépassement, valeurs bornées à [0, MAX_VOLUME].
+function Music.step(current, target, dt, fade)
+	local cur = finite(current) and current or 0
+	local tg = finite(target) and math.min(Music.MAX_VOLUME, math.max(0, target)) or 0
+	local d = finite(dt) and dt > 0 and dt or 0
+	local f = finite(fade) and fade > 0 and fade or 2.5
+	local maxStep = Music.MAX_VOLUME / f * d
+	if cur < tg then
+		return math.min(tg, cur + maxStep)
+	end
+	return math.max(tg, cur - maxStep)
+end
+
+return Music
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX54"><Properties><string name="Name">EggAura</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/EggAura (lot graphismes 4 : halos d'œufs et bulles de protection). Logique PURE, sans service Roblox.
 -- Un halo lumineux par rareté (couleur = Config.TIERS[tier].color, pulsation lente, plus visible quand la rareté monte) sur les œufs du tapis, portés et posés,
 -- et une bulle transparente sur les œufs protégés (bouclier d'une base, nid surveillé par un gardien). AUCUNE PointLight : une Part néon (halo) ou champ de
 -- force (bulle) par œuf retenu, au plus `maxHalos` / `maxBubbles` (plafonds réduits sur mobile), les plus proches de la caméra à moins de `range` studs.
@@ -19319,7 +19411,7 @@ function EggAura.newManager(factory, poolMax)
 end
 
 return EggAura
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX54"><Properties><string name="Name">Evolution</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Evolution
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX55"><Properties><string name="Name">Evolution</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ReplicatedStorage/Shared/Evolution
 -- IDÉE 2 (coffre IDEES_CHIPE_OEUFS) : évolution d'un pet en « forme 2 ». Logique PURE : aucune API Roblox, aucun yield, aucune erreur levée sur une
 -- entrée invalide (valeurs de retour). Testé par tests/evolution.luau (Lune ou lupa). Le serveur (Main) n'appelle que plan / stage / stillValid / apply.
 --
@@ -19680,7 +19772,7 @@ Evolution.REFUSE = {
 
 return Evolution
 ]]></ProtectedString></Properties></Item></Item></Item>
-<Item class="ServerScriptService" referent="RBX70"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX57"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
+<Item class="ServerScriptService" referent="RBX71"><Properties><string name="Name">ServerScriptService</string></Properties><Item class="Script" referent="RBX58"><Properties><string name="Name">Main</string><ProtectedString name="Source"><![CDATA[-- Script : ServerScriptService/Main
 -- Logique serveur complète de Chipe-Œufs (le serveur décide de tout, le client ne fait qu'afficher).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -26343,7 +26435,7 @@ task.spawn(function()
 end)
 
 print("[Chipe-Œufs] serveur prêt")
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX58"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX59"><Properties><string name="Name">Data</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Data
 -- Sauvegarde DataStore avec VERROU DE SESSION (un joueur ne peut pas être chargé sur 2 serveurs à la fois :
 -- empêche les pertes et duplications quand on change de serveur vite) + classement global.
 -- Les emplacements vides valent `false` (un tableau JSON ne supporte pas les trous).
@@ -27364,7 +27456,7 @@ function Data.pvpTop(season, count)
 end
 
 return Data
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX59"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX60"><Properties><string name="Name">Builder</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Builder
 -- Construit TOUT le visuel avec des Parts, matériaux et particules de base Roblox (aucun asset externe).
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
@@ -30292,7 +30384,7 @@ function Builder.clearPrivateBelt(plot)
 end
 
 return Builder
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX60"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX61"><Properties><string name="Name">Rules</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Rules
 -- Règles de jeu PURES (aucun service Roblox) : tirages, revenus, durées, capacités.
 -- Config est injectée (Rules.new(Config)) pour que ces règles se testent hors de Roblox (Lune, voir tests/run.luau).
 local Rules = {}
@@ -30461,7 +30553,7 @@ function Rules.new(Config)
 end
 
 return Rules
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX61"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX62"><Properties><string name="Name">Diag</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Diag
 -- Classement pur des erreurs de services Roblox (testé hors Roblox). Aucune dépendance.
 local Diag = {}
 
@@ -30474,7 +30566,7 @@ function Diag.isStudioApiError(err)
 end
 
 return Diag
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX62"><Properties><string name="Name">HenQuest</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HenQuest
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX63"><Properties><string name="Name">HenQuest</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HenQuest
 -- REFONTE lot 6 : énigme de la Mère Poule côté SERVEUR (étapes guidées : plumes, runes, berceuse). Toutes les règles sont dans ReplicatedStorage/Riddle (pur,
 -- testé) ; ici : l'état par joueur, les prompts, les 4 plumes du jour, la récompense, l'effet collectif et le journal.
 -- Principe : le client n'envoie que des INTENTIONS (« Parler », « Ramasser », toucher une pierre, 4 boutons du dialogue) ; chaque distance, chaque étape,
@@ -30993,7 +31085,7 @@ function HenQuest.new(ctx)
 end
 
 return HenQuest
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX63"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX64"><Properties><string name="Name">Scenery</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Scenery
 -- Décor de la carte (REFONTE lot 2 : carte 700 x 500, géométrie de MapGeo) : place du marché, territoires, chemins, eau, château, arène, relief,
 -- secrets. Tout en Parts de base ; les outils de construction de Builder sont injectés (h.part, h.ball, h.tree, h.torch, h.sign). Chaque fonction
 -- retourne le nombre de Parts créées (budget mobile).
@@ -31737,7 +31829,7 @@ function Scenery.secrets(h, parent, cfg)
 end
 
 return Scenery
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX64"><Properties><string name="Name">Kiosk</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Kiosk
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX65"><Properties><string name="Name">Kiosk</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Kiosk
 -- LOT 8B-kiosque : KIOSQUE CENTRAL de la place (comptoir face à la halle). Modèle Blender hub.kiosk (id 90238570290603) avec REPLI PROCEDURAL obligatoire :
 -- si le chargement échoue (Assets désactivé, délai, modèle vide, trop lourd, mal dimensionné), un kiosque en Parts de base est construit à la place, avec les
 -- mêmes noms de panneaux, donc les mêmes prompts. 4 interactions par ProximityPrompt (étiquetés « KioskPrompt », attribut KioskAction) :
@@ -32402,7 +32494,7 @@ function Kiosk.handle(player, action, ctx)
 end
 
 return Kiosk
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX65"><Properties><string name="Name">Sellers</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Sellers
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX66"><Properties><string name="Name">Sellers</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Sellers
 -- LOT 16 : 8 VENDEURS PNJ du hub, un par catégorie de la boutique du kiosque. Modèle Blender par vendeur (SellersData.VENDORS[i].asset) avec REPLI
 -- PROCEDURAL obligatoire (étal simple + silhouette + enseigne), mêmes noms de pièces (Etiquette, Lueur), donc mêmes prompts. Ils ne bougent pas, n'interpellent
 -- jamais. Chaque vendeur porte une étiquette flottante (BillboardGui, 60 studs) et un ProximityPrompt « Parler » qui ouvre la boutique du kiosque sur son onglet.
@@ -32906,7 +32998,7 @@ function Sellers.handle(player, action, ctx)
 end
 
 return Sellers
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX66"><Properties><string name="Name">PvpLive</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/PvpLive
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX67"><Properties><string name="Name">PvpLive</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/PvpLive
 -- LOT 14 : transport du classé en direct. Toutes les décisions sont dans ReplicatedStorage/Shared/Ranked (pur) ; ce module ne fait que
 -- les appliquer avec un RUNTIME INJECTÉ (tests : faux runtime de tests/lot14.luau ; jeu : PvpLive.robloxRuntime, MemoryStore + TeleportService).
 -- Aucun yield ici en dehors des appels au runtime ; chaque appel réseau est dans un pcall (une panne MemoryStore = un tour sans effet,
@@ -33602,7 +33694,7 @@ function PvpLive.robloxRuntime(Config, hooks)
 end
 
 return PvpLive
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX67"><Properties><string name="Name">Decor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Decor
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX68"><Properties><string name="Name">Decor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Decor
 -- Lot 8B-décor : pose des modèles Blender de DÉCOR DE CARTE (lots 15, 16, 17) avec repli procédural. Données : ReplicatedStorage/Shared/DecorData.
 --   Decor.plan(G, config, data, deps)          : plan PUR (aucun Instance) : positions, rotations, empreintes ; déterministe ; testé hors de Roblox.
 --   Decor.build(parent, G, config, deps)       : charge les modèles manquants (Assets.loadMany : lots parallèles, délai, un nouvel essai), pose chaque exemplaire
@@ -34828,7 +34920,7 @@ function Decor.refresh(handle)
 end
 
 return Decor
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX68"><Properties><string name="Name">HouseDecor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HouseDecor   (lot 8B-meubles, NON INTÉGRÉ : voir roblox/HOUSEDECOR_INTEGRATION_NOTES.md)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX69"><Properties><string name="Name">HouseDecor</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/HouseDecor   (lot 8B-meubles, NON INTÉGRÉ : voir roblox/HOUSEDECOR_INTEGRATION_NOTES.md)
 -- Place le décor intérieur d'une maison selon son niveau (données : ReplicatedStorage/Shared/HouseDecorData).
 --   HouseDecor.apply(houseModel, level, config) -> rapport { placed, kept, removed, loaded, fallback, parts }
 --   * idempotent : rappeler apply avec le même niveau ne crée rien ; monter de niveau ajoute seulement le nouveau décor ;
@@ -35057,7 +35149,7 @@ function HouseDecor.resetCache()
 end
 
 return HouseDecor
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX69"><Properties><string name="Name">Telemetry</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Telemetry
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX70"><Properties><string name="Name">Telemetry</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : ServerScriptService/Telemetry
 -- LOT 9 : 12 métriques de rythme envoyées à AnalyticsService (Creator Hub > Analytics), SANS donnée personnelle (aucun nom, aucun identifiant
 -- en champ : AnalyticsService rattache lui-même l'événement au joueur). Tout appel est sous pcall ; service indisponible (Studio, panne) = rien.
 -- Débit : au plus 1 événement par seconde et par joueur (file de 16 par joueur, la plus ancienne jetée au-delà), vidée par Telemetry.step.
@@ -35283,7 +35375,7 @@ end
 
 return Telemetry
 ]]></ProtectedString></Properties></Item></Item>
-<Item class="StarterPlayer" referent="RBX90"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX89"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX71"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
+<Item class="StarterPlayer" referent="RBX92"><Properties><string name="Name">StarterPlayer</string></Properties><Item class="StarterPlayerScripts" referent="RBX91"><Properties><string name="Name">StarterPlayerScripts</string></Properties><Item class="LocalScript" referent="RBX72"><Properties><string name="Name">Client</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Client
 -- Interface 100 % générée par code (aucune image à importer).
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -35416,6 +35508,7 @@ local volumeIdx = 1
 local function masterVolume()
 	return Config.VOLUME_STEPS[volumeIdx] or 1
 end
+player:SetAttribute("MasterVolume", masterVolume()) -- graphismes 9 : volume général lu par Music.client.lua (attribut local, jamais envoyé au serveur)
 local function getSound(key)
 	local snd = soundPool[key]
 	if snd and snd.Parent then
@@ -36946,6 +37039,7 @@ function render()
 			btn = "Changer", btnColor = COL.green,
 			onClick = function()
 				volumeIdx = volumeIdx % #Config.VOLUME_STEPS + 1
+				player:SetAttribute("MasterVolume", masterVolume())
 				render()
 			end,
 		})
@@ -38498,7 +38592,7 @@ do
 		end
 	end)
 end
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX72"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX73"><Properties><string name="Name">Animations</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Animations
 -- Animations locales (aucun coût réseau). Chaque animation est activable dans Config.Animations et exécutée par Easing.guard :
 -- sous pcall, et désactivée pour la session si elle lève une erreur. Les valeurs (courbes, phases, confettis) viennent du module
 -- pur Easing, testé hors de Roblox. Aucune animation n'est nécessaire au gameplay.
@@ -39060,7 +39154,7 @@ Remotes:WaitForChild("Hatch").OnClientEvent:Connect(function(info)
 		end)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX73"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX74"><Properties><string name="Name">Cinematics</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Cinematics
 -- Cinématiques courtes, aux moments clés seulement : intro (la ferme, Mère Poule, les œufs, le but) et mini tutoriel au premier lancement,
 -- première zone débloquée, premier pet rare. Toutes skippables (bouton, Entrée, manette B), réglables dans Config.Cinematics, exécutées
 -- sous pcall (Easing.guard), et JAMAIS bloquantes : le joueur garde le contrôle de son personnage, le jeu continue, la caméra est
@@ -39712,7 +39806,7 @@ replay.Event:Connect(function(kind)
 		begin("tutorial", Config.CINE.tutorial, {}, false)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX74"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX75"><Properties><string name="Name">Ambience</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayerScripts/Ambience
 -- Ambiance propre à chaque zone : en entrant dans un domaine (ou en revenant à l'arène), l'éclairage, l'atmosphère et la teinte de l'image
 -- glissent doucement vers les réglages de Config.LIGHTING (zone de lumière : Config.lightingZoneAt ; modification locale : n'affecte que ce joueur). Coupable avec
 -- Config.Animations.zoneAmbience. Une erreur désactive l'ambiance pour la session sans gêner le jeu.
@@ -39858,7 +39952,7 @@ task.spawn(function()
 		task.wait(0.5)
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX75"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Culling
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX76"><Properties><string name="Name">Culling</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Culling
 -- Masque les zones (territoires) éloignées du joueur : au-delà de Config.Culling.cullAt studs du bord d'une zone, ses Parts passent en transparence locale totale
 -- (LocalTransparencyModifier = 1) et ses lumières, particules, faisceaux, feux et étiquettes sont coupés ; en dessous de showAt, tout revient. Rien n'est détruit ni
 -- déplacé : les collisions et la réplication serveur ne changent pas. Découpé en lots par image, coupé par Config.Culling.enabled = false.
@@ -39941,7 +40035,7 @@ task.spawn(function()
 		end
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX76"><Properties><string name="Name">LightLod</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/LightLod
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX77"><Properties><string name="Name">LightLod</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/LightLod
 -- Niveau de détail des effets (lot graphismes, budget mobile) : au plus Config.GRAPHICS.perf.maxPointLights PointLight de la carte sont allumées (les plus proches de la
 -- caméra, à moins de lightRange studs, choix de Graphics.selectLights) ; les émetteurs de particules, faisceaux, feux, fumées et étincelles au-delà de fxCullAt studs sont
 -- coupés et rallumés sous fxShowAt (hystérésis de Culling.decide). Rien n'est détruit ni déplacé ; seules les propriétés Enabled changent, et SEULEMENT pour les objets que ce
@@ -40053,7 +40147,7 @@ task.spawn(function()
 		end
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX77"><Properties><string name="Name">EggAura</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/EggAura (lot graphismes 4 : halos d'œufs et bulles de protection).
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX78"><Properties><string name="Name">EggAura</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/EggAura (lot graphismes 4 : halos d'œufs et bulles de protection).
 -- Applique ReplicatedStorage/EggAura (pur, testé) : chaque œuf taggé « EggAura » par Builder.egg (tapis, portés, posés, nids) reçoit, s'il est parmi les plus
 -- proches de la caméra, un halo néon de la couleur de sa rareté (pulsation lente) ; un œuf protégé (attribut ShieldUntil dans le futur : bouclier de base ;
 -- attribut Guarded : nid surveillé par un gardien) reçoit en plus une bulle translucide. AUCUNE PointLight (budget de LightLod : <= 4 allumées).
@@ -40228,7 +40322,82 @@ conn = RunService.RenderStepped:Connect(function()
 		folder:Destroy()
 	end
 end)
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX78"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
+]]></ProtectedString></Properties></Item><Item class="LocalScript" referent="RBX79"><Properties><string name="Name">Music</string><ProtectedString name="Source"><![CDATA[-- LocalScript : StarterPlayer/StarterPlayerScripts/Music (graphismes 9 : musique par zone). Applique ReplicatedStorage/Music (pur, testé).
+-- Une piste par zone (hub, arène, château) d'après Config.lightingZoneAt, volume bas (Config.MUSIC.volume, plafond 0,3), fondus enchaînés, coupée pendant un combat
+-- (panneau ArenaPanel de BattleGui visible : lu, jamais modifié), respect de Config.SOUNDS_ENABLED et du volume général du menu Plus (attribut local MasterVolume
+-- posé par Client.client.lua ; 0 = muet). Sans aucune piste approuvée (ids vides), le script s'arrête aussitôt : prêt mais muet, aucun Sound créé.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local SoundService = game:GetService("SoundService")
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared:WaitForChild("Config"))
+local Music = require(Shared:WaitForChild("Music"))
+
+local cfg = Music.cfg(Config)
+if not cfg.enabled or not Music.hasTracks(Config) then
+	return -- prêt mais muet : aucune piste fournie (voir BLENDER_REQUESTS.md / A_FAIRE_UTILISATEUR.md « pistes à fournir »)
+end
+local player = Players.LocalPlayer
+
+local sounds = {}
+for _, zone in ipairs(Music.ZONES) do
+	local id = cfg.tracks[zone]
+	if id then
+		local s = Instance.new("Sound")
+		s.Name = "Music_" .. zone
+		s.SoundId = id
+		s.Looped = true
+		s.Volume = 0
+		s.Parent = SoundService
+		sounds[zone] = s
+	end
+end
+
+local function inBattle()
+	local pg = player:FindFirstChild("PlayerGui")
+	local bg = pg and pg:FindFirstChild("BattleGui")
+	local panel = bg and bg:FindFirstChild("ArenaPanel")
+	return panel ~= nil and panel.Visible == true
+end
+
+local function currentZone()
+	local char = player.Character
+	local root = char and char:FindFirstChild("HumanoidRootPart")
+	if not root or type(Config.lightingZoneAt) ~= "function" then
+		return "hub"
+	end
+	local ok, z = pcall(Config.lightingZoneAt, root.Position.X, root.Position.Z)
+	return Music.zoneOf(ok and z or nil)
+end
+
+local last = os.clock()
+while true do
+	task.wait(cfg.interval)
+	local ok, err = pcall(function()
+		local now = os.clock()
+		local dt = now - last
+		last = now
+		local master = player:GetAttribute("MasterVolume")
+		local ctx = { zone = currentZone(), battle = inBattle(), master = type(master) == "number" and master or 1, soundsEnabled = Config.SOUNDS_ENABLED }
+		for zone, s in pairs(sounds) do
+			local v = Music.step(s.Volume, Music.target(Config, zone, ctx), dt, cfg.fade)
+			s.Volume = v
+			if v > 0 and not s.IsPlaying then
+				s:Play()
+			elseif v <= 0 and s.IsPlaying then
+				s:Pause()
+			end
+		end
+	end)
+	if not ok then
+		warn("[Music] arrêtée : " .. tostring(err))
+		for _, s in pairs(sounds) do
+			s:Destroy()
+		end
+		break
+	end
+end
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX80"><Properties><string name="Name">RevealFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/RevealFx
 -- Effet de révélation d'un œuf, 100 % dessiné par le code (Frames, UIGradient, UIStroke, UICorner, TweenService) : étoile lumineuse centrale
 -- colorée selon la rareté, halo, rayons qui tournent, anneaux qui s'étendent, étincelles, libellé « ŒUF SECRET ». Aucun asset externe.
 -- Le style (nombre de rayons, d'anneaux, de particules) vient de Reveal.style : l'option mobile le réduit. Aucune erreur ne sort d'ici.
@@ -40343,7 +40512,7 @@ function RevealFx.play(parent, style, center)
 end
 
 return RevealFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX79"><Properties><string name="Name">SlotFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/SlotFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX81"><Properties><string name="Name">SlotFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/SlotFx
 -- Écran de tirage « machine à sous » (rareté / taille / mutation) avant la révélation d'un œuf : 3 colonnes qui défilent comme des rouleaux, ralentissent et
 -- s'arrêtent une à une (secousse et étincelles à chaque arrêt), bannière « SECRET ! » sur un tirage secret, phénix lumineux avec cercle runique dès le
 -- palier Légendaire. 100 % dessiné par le code ; le plan (positions, arrêts) vient de Reveal.slotPlan et le résultat affiché est TOUJOURS le tirage réel.
@@ -40532,7 +40701,7 @@ function SlotFx.play(parent, plan, cell, opts)
 end
 
 return SlotFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX80"><Properties><string name="Name">MiniMapUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/MiniMapUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX82"><Properties><string name="Name">MiniMapUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/MiniMapUi
 -- Mini-carte ronde dessinée par le code : un cadre, des pastilles réutilisées (au plus Config.MINIMAP.maxDots, jamais créées en cours de route), mise à jour
 -- Config.MINIMAP.hz fois par seconde. Points : toi (centre), ta base, les zones (grisées si verrouillées), les portails de voyage rapide, les gardiens proches.
 -- Bouton 🗺 pour l'afficher ou la masquer. Tout sous pcall.
@@ -40688,7 +40857,7 @@ function MiniMapUi.start(Config, MiniMap, player, gui, getState, UserInputServic
 end
 
 return MiniMapUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX81"><Properties><string name="Name">BattleUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX83"><Properties><string name="Name">BattleUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleUi
 -- Arène des pets (PvE) : écran d'équipe (3 pets de la collection, type affiché), choix de l'étage de la tour, écran de combat (barres de PV, icônes de type,
 -- flèche d'avantage, journal court, minuteur de tour), écran de résultat avec récompenses. 100 % code. Le client N'ENVOIE QU'UNE INTENTION par tour
 -- (« attack », « skill », « swapN ») : tout le résultat vient du serveur (événements rejoués ici). Aucune erreur ne sort d'ici.
@@ -41573,7 +41742,7 @@ function BattleUi.start(Config, Battle, player, gui, getState, fire, RBattle, fx
 end
 
 return BattleUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX82"><Properties><string name="Name">BattleIntro</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleIntro   (lot 10, B.4)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX84"><Properties><string name="Name">BattleIntro</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleIntro   (lot 10, B.4)
 -- Intro de combat, 3 s au maximum, passable (tap après 1 s) : deux bandeaux glissent depuis les bords (joueur à gauche, adversaire à droite) avec portrait, nom, ligue,
 -- trophées, ratio « 124 V / 37 D (77 %) » et 3 vignettes de pets (type + compteur de rareté) ; « VS » qui frappe (échelle 2 -> 1, secousse 0,3 s, son « fanfare » à 0,5) ;
 -- flèche d'avantage de type ; décompte 3-2-1 si demandé. 100 % code. Le plan vient de ReplicatedStorage/IntroPlan (pur). Rien ne s'exécute à l'import, aucun require.
@@ -41798,7 +41967,7 @@ function BattleIntro.play(parent, plan, opts)
 end
 
 return BattleIntro
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX83"><Properties><string name="Name">BattleScene</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleScene   (refonte de la présentation du combat, vue face à face)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX85"><Properties><string name="Name">BattleScene</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/BattleScene   (refonte de la présentation du combat, vue face à face)
 -- Construit l'écran de combat : une scène 3D dans un ViewportFrame (fond de ciel, sol de sable ou d'herbe, décor en arc, deux socles circulaires lumineux, une créature
 -- procédurale par camp, caméra fixe en léger angle), la carte de l'adversaire (haut à droite : nom, niveau, barre de PV verte, points d'état de l'équipe), la carte du
 -- joueur (bas à gauche : nom, niveau, PV chiffrés, points d'état, pastilles de charge), le bandeau de journal (bas) et les boutons d'action (bas à droite : Attaque,
@@ -42805,7 +42974,7 @@ function BattleScene.create(o)
 end
 
 return BattleScene
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX84"><Properties><string name="Name">HatchFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HatchFx   (lot 10, B.3)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX86"><Properties><string name="Name">HatchFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HatchFx   (lot 10, B.3)
 -- Exécute le plan d'éclosion calculé par ReplicatedStorage/HatchPlan (10 animations, une par rareté). 100 % dessiné par le code : Frames, TextLabels, UICorner,
 -- UIGradient, UIStroke, TweenService, plus un ColorCorrectionEffect temporaire (teinte / désaturation) et le champ de vision de la caméra (zoom). Aucun asset.
 -- Tout est sous pcall ; durée <= 8 s ; l'œuf, la caméra et l'interface sont TOUJOURS restitués (fin normale, passage par un tap, erreur, ou chien de garde à durée + 0,6 s).
@@ -43565,7 +43734,7 @@ function HatchFx.play(parent, plan, opts)
 end
 
 return HatchFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX85"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/TypeFx   (lot 10, B.6)
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX87"><Properties><string name="Name">TypeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/TypeFx   (lot 10, B.6)
 -- Effets d'attaque par type (Feu, Eau, Plante, Glace, Foudre, Terre, Ciel, Ombre, Lumière) pour l'écran de combat : attaque de base (0,5 s) et spécial (1,2 s, cercle runique sous
 -- l'attaquant + secousse 0,4 s), plus le texte d'efficacité flottant. 100 % dessiné par le code (Frames, TextLabels, UICorner, UIGradient, UIStroke, TweenService), aucun asset.
 -- Les DONNÉES viennent de ReplicatedStorage/TypeFx (table DATA, exposée plus tard comme Config.TYPE_FX) et sont PASSÉES en paramètre : ce module n'a aucun require et
@@ -43965,7 +44134,7 @@ function TypeFx.floatText(parent, text, rgb, x, y)
 end
 
 return TypeFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX86"><Properties><string name="Name">BaseUpgradeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayer/StarterPlayerScripts/BaseUpgradeFx
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX88"><Properties><string name="Name">BaseUpgradeFx</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayer/StarterPlayerScripts/BaseUpgradeFx
 -- Montée de niveau de la maison (REFONTE lot 5, D.4), côté client : échafaudage de bois (Parts temporaires locales), nuage de poussière + onde (VfxKit),
 -- l'ancienne maison s'enfonce, la nouvelle monte avec squash & stretch. Le calendrier vient du module pur Upgrade (4,5 s) ; la bannière, la fanfare et les
 -- confettis viennent de la notification serveur « levelup » (au début de la fête). Le serveur garde la nouvelle maison sous le sol puis la remet en place
@@ -44248,7 +44417,7 @@ function BaseUpgradeFx.start(env)
 end
 
 return BaseUpgradeFx
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX87"><Properties><string name="Name">HenUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HenUi
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX89"><Properties><string name="Name">HenUi</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/HenUi
 -- REFONTE lot 6 : interface de l'énigme de la Mère Poule. Tout est local au joueur et sous pcall ; le serveur reste autoritaire (le client n'envoie que
 -- des intentions : « henGo », « henExplain », « henHint », « henReplay »).
 --  - bulle de dialogue en bas (texte écrit à Config.HEN.bubbleCps caractères/s, « Suivant », boutons selon le contexte, passable) ;
@@ -44710,7 +44879,7 @@ function HenUi.start(ctx)
 end
 
 return HenUi
-]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX88"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
+]]></ProtectedString></Properties></Item><Item class="ModuleScript" referent="RBX90"><Properties><string name="Name">CoinIcon</string><ProtectedString name="Source"><![CDATA[-- ModuleScript : StarterPlayerScripts/CoinIcon
 -- Icônes de richesse dessinées par le code (Frames, UICorner, UIStroke, UIGradient) : 1 pièce, petite pile, grosse pile, coffre.
 -- Aucune image ni identifiant. Retourne le conteneur ; aucune erreur ne sort d'ici (pcall) : nil si la construction échoue.
 local CoinIcon = {}

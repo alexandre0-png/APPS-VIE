@@ -10,6 +10,12 @@ Citation : « Plus les pets sont rares, plus ils rapportent de pièces, plus ils
 2. **Force en combat** : `Battle.STATS[r]`, puissance pv + 3 x attaque + 2 x vitesse strictement croissante, x1,25 au moins ; profils tank / attaquant / rapide / équilibré, écart de 8 à 15 % dans une rareté, le plus fort d'une rareté sous le plus faible de la suivante. Tests « Règle (2) ». Rien d'achetable ne touche ces stats.
 3. **Pièces contre Robux** : tout article payable aux deux est plus cher et plus long en pièces : pour le débutant, temps de gain en pièces entre 4 et 12 fois le « temps Robux » (prix en R$ x `Config.PRICING_REF.secondsPerRobux`, taux du Sac de pièces : 20 min de revenu pour 99 R$ = 12,1 s par R$) ; jamais inatteignable. Les œufs Secret (1 499 R$), Exclusif (3 499 R$) et Divin (6 999 R$) sont vendus en Robux à prix fixe et rareté FIXE, contenu affiché, `random = true`, masqués et refusés si PolicyService restreint ; aucun avantage de combat acheté. Tests « Règle (3) ».
 
+## GRAPHISMES 9 : musique par zone (prête, sans pistes) (2026-11-28)
+**Rien n'a été entendu dans Studio ; aucune piste n'existe.**
+- `ReplicatedStorage/Music.lua` (pur) : zones hub (village + parcelles) / arène / château d'après `Config.lightingZoneAt`, volume cible (bas, plafond 0,3) = 0 en combat, si `SOUNDS_ENABLED = false`, si le volume général est muet ou si la piste manque ; fondu borné ; identifiants acceptés seulement au format `rbxassetid://<chiffres>`.
+- `StarterPlayerScripts/Music.client.lua` : s'arrête aussitôt sans piste (aucun Sound créé) ; sinon une piste en boucle par zone dans SoundService, combat détecté en LISANT `BattleGui.ArenaPanel` (BattleUi non modifié). `Client.client.lua` pose l'attribut local `MasterVolume` (volume du menu Plus). `Config.MUSIC` : pistes vides.
+- Besoin noté dans `A_FAIRE_UTILISATEUR.md` (« pistes à fournir »). Tests : `tests/music.luau` (`run_music.py`), branché dans `run.luau`.
+
 ## GRAPHISMES 6 : style d'interface commun (UiStyle) (2026-11-28)
 **Rien n'a été vu dans Studio.**
 - `ReplicatedStorage/UiStyle.lua` (pur) : rayons (panneau 18, carte 14, icône 12, bouton 10, puce 8), ombre légère (bandes noires décalées de 4 px, transparence 0,72), polices (GothamBlack / GothamBold / Gotham), tailles (22 à 11 px), espacements (4 / 6 / 10 / 16), palette commune et 17 couples texte / fond vérifiés >= 4,5:1 (pire : texte atténué sur panneau 5,2:1). Seul changement de couleur : le texte des boutons désactivés (152, 168, 158 -> 205, 218, 210 : 2,9:1 -> 4,5:1 et plus).

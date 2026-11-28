@@ -2891,6 +2891,9 @@ Config.SHOWCASE = { enabled = false, origins = { g = true, c = true }, minTier =
 -- Lot graphismes 4 : halos d'œufs (couleur de la rareté, pulsation lente) et bulles de protection, côté client (ReplicatedStorage/EggAura, StarterPlayerScripts/EggAura).
 -- AUCUNE PointLight ; au plus maxHalos / maxBubbles objets (réduits sur mobile), les plus proches à moins de range studs. Valeurs par défaut dans EggAura.DEFAULTS.
 Config.EGG_AURA = { enabled = true, range = 110, maxHalos = 24, maxHalosMobile = 10, maxBubbles = 12, maxBubblesMobile = 6 }
+-- Graphismes 9 : musique par zone (ReplicatedStorage/Music, StarterPlayerScripts/Music). Pistes VIDES tant qu'aucune musique approuvée n'existe : système prêt
+-- mais muet. Format attendu : "rbxassetid://<chiffres>" (piste en boucle, libre de droits, voir A_FAIRE_UTILISATEUR.md « pistes à fournir »). Volume plafonné à 0,3.
+Config.MUSIC = { enabled = true, volume = 0.15, fade = 2.5, interval = 0.5, tracks = { hub = "", arena = "", castle = "" } }
 -- Version publiée (étiquette des événements AnalyticsService « version », I.2) : à changer à chaque publication.
 Config.BUILD = "1.16.0"
 -- Vendeurs PNJ du hub (modèles Blender du lot 30 de la gestion ; repli procédural si le chargement échoue). Écart accepté : 2 vendeurs à 14-22 studs, 6 plus loin.

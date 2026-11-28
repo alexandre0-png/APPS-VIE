@@ -131,6 +131,7 @@ local volumeIdx = 1
 local function masterVolume()
 	return Config.VOLUME_STEPS[volumeIdx] or 1
 end
+player:SetAttribute("MasterVolume", masterVolume()) -- graphismes 9 : volume général lu par Music.client.lua (attribut local, jamais envoyé au serveur)
 local function getSound(key)
 	local snd = soundPool[key]
 	if snd and snd.Parent then
@@ -1661,6 +1662,7 @@ function render()
 			btn = "Changer", btnColor = COL.green,
 			onClick = function()
 				volumeIdx = volumeIdx % #Config.VOLUME_STEPS + 1
+				player:SetAttribute("MasterVolume", masterVolume())
 				render()
 			end,
 		})
