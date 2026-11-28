@@ -82,3 +82,59 @@ Les 29 modèles des lots 15 (hors maisons déjà branchées), 16 et 17 sont char
 | `house_lvl4`, `house_lvl5` (déjà branchés, lot 5) | Portail de garage (lvl4) ; terrasse de référence (lvl5) | idem | idem | Éléments signalés manquants à la livraison du lot 15 (pas du ressort de `Decor.lua`) | idem | idem |
 
 Non repris par `Decor.lua` : lots 18 et 19 (intérieurs de maison, autre mission). Pas de doublon fonctionnel avec le village du lot 12 : `well_roofed` (2) s'ajoute aux 2 `scn_puits`, `boulder_cluster` aux `scn_rocher_*`, `island_sakura` pose sur les lacs l'îlot que `scn_ile_sakura` n'avait jamais reçu (non placé par `Placement.VILLAGE`).
+
+## Mobs : style unique (inventaire d'après le code et les docs, aucun rendu vu)
+
+Base : lecture de `Builder.lua`, `Scenery.lua`, `Castle.lua`, `BattleScene.lua`, `Client.client.lua`, `Config.lua`, `CHANGELOG.md`, ce fichier. Je n'ai vu aucune image : les contrastes sont déduits des formes, matières et couleurs écrites dans le code, pas jugés à l'œil. Aucun test de « galerie » de mobs n'existe dans `tests/` ni dans les outils (recherche faite) : rien n'est vérifié automatiquement sur la cohérence de style des monstres. Aucun identifiant nouveau, aucun code de jeu modifié.
+
+### Inventaire factuel (comment chaque mob est construit aujourd'hui)
+
+| Mob | Où | Construction aujourd'hui | Repli | Remarques de style |
+|---|---|---|---|---|
+| Gardiens Gus (domaine 1), Mara (2), Zed (3) | monde, `Builder.guard` ; Blender `guards.dog` / `wolf` / `bear` (ids dans `Config.Assets.models.guards`, branchés par `Builder.dressGuards`) | Blender approuvé (un modèle par gardien), mis à l'échelle sur `Config.Assets.guardHeights` (2,5 / 3 / 5 studs) ; le `Body` procédural reste invisible (repère, étiquette) | Procédural identique pour les 3 : tronc en bloc 3 x 2,4 x 4,4, **tête et yeux en sphères**, museau, oreilles et pattes en blocs, yeux Neon rouges ; seule la couleur change (`Config.RIVALS[i].color`) | Mélange blocs + sphères dans le repli ; trois bêtes différentes (chien, loup, ours en armure) mais le repli donne le même animal trois fois |
+| Chevaliers du château (salles 3 à 5) | monde, `Scenery.lua` (pilote), Blender `guards.knight` (`Builder.dressKnights`, hauteur 4,5) | Blender approuvé ; pilote = un seul bloc Metal 3 x 6 x 3 (gris `969CAA`) rendu invisible une fois le modèle posé | **Aucun repli de forme** : sans modèle, le joueur voit un parallélépipède métallique nu (le seul mob sans silhouette) | Pierre/métal brillant quand le reste du donjon est en plastique lisse ; hauteur Config 4,5 contre 6 demandée plus haut dans ce fichier |
+| Pièges (pics, lame, boulet) | monde, `Scenery.lua` + `Builder.dressTraps` | Blender si chargé, sinon blocs / cylindre / sphère Metal ou Slate | procédural | Pas des mobs de combat : hors périmètre, cités pour le contraste de matières (Metal brillant, seules pièces métalliques autorisées par la palette) |
+| Créatures de combat (joueur et adversaires de la tour, de l'arène, des PNJ, boss de la tour) | client, `BattleScene.buildPuppet` | **Toujours procédural** (le client n'a pas accès aux modèles Blender : noté au CHANGELOG, écart du lot de refonte) : corps **sphère**, yeux, oreilles « round » en sphères ou « point / long / floppy » en blocs, bec en bloc, queue en sphère | aucun (c'est déjà le repli) ; 5 formes d'oreilles et 2 extras seulement (`beak`, `tail`) sur les 78 espèces | Même pet vu au monde en Blender (blocs séparés Corps / Tête / Pattes...) et en combat en boule : contraste de style le plus fort du jeu. Aucun boss n'a de modèle propre : les 9 boss de la tour (`Config.TOWER.bosses`) sont de simples équipes de pets avec un nom |
+| Pets en monde (suivants, bases) | `Builder.pet`, Blender `Config.Assets.pets` + `petsNew` (Bestiary, 60 modèles, plafond 40 Parts) | Blender approuvé pour 14 espèces historiques sur 18 + 60 espèces du Bestiaire | Procédural : corps sphère, yeux/joues/pieds en sphères, 16 extras (cornes, ailes, tentacules, segments, cristaux...) | Repli entièrement lisse (sphères) ; Tigre, Kraken, Calmar stellaire, Wyrm astral n'ont pas de Blender |
+| PNJ de combat (Lina, Bruno, Maître Kaï) et PNJ d'échange (Pip, Nora) | client, `Client.client.lua` (`L15.buildModel`) ; Blender `npc.*` (ids dans `Config.Assets.models.npc`) | Blender approuvé, remis à 6 studs de haut (`Config.NPC_VIEW.height`) | Corps bloc 2,2 x 3,2 x 1,4 teinté + **tête sphère** (2 Parts) | Humanoïdes : hors du style « bête » ; leur équipe de combat est faite de pets (voir ligne créatures) |
+| Corbeau chipeur | monde, `Builder.raven` | Aucun Blender (clé `npc.raven` sans id) | 6 blocs (corps, tête, bec, 2 ailes, queue), sombre `1C1C24` | Tout en blocs, sans sphère |
+| Mère Poule | monde, `Builder.hen` | Procédural uniquement, 14 Parts : corps et tête en sphères, crête, ailes, pattes, bec en blocs | aucun | PNJ de décor, pas un mob de combat ; mélange sphères + blocs |
+
+### Mélanges de styles et contrastes repérés
+
+1. **Combat contre monde** (le plus fort) : en monde les pets et gardiens sont des modèles Blender à pièces séparées ; en combat, les mêmes créatures sont des boules à oreilles (`BattleScene.buildPuppet`). Le joueur voit deux « langages » pour le même pet.
+2. **Repli procédural des gardiens** : sphère (tête, yeux) posée sur un tronc en bloc, identique pour Gus, Mara et Zed (seule la teinte change) ; les modèles Blender sont trois animaux distincts.
+3. **Chevalier** : modèle Blender (pierre, lance, bouclier) mais repli = bloc métallique nu ; métal brillant dans un décor en plastique lisse.
+4. **Parts numériques contre demandes** : tailles et budgets réels (`guardHeights` 2,5 / 3 / 5 / 4,5 ; `modelsMaxParts` 80 / 80 / 90 / 100) diffèrent du tableau « À créer » plus haut (3 / 4 / 6 / 6 studs ; 40 / 50 / 50 / 60 Parts) : le code a été calé sur les modèles livrés, pas sur la demande.
+5. **Humanoïdes contre bêtes** : PNJ, chevalier et gardien « ours en armure » sont les seuls bipèdes ; tout le reste est quadrupède ou sphérique.
+6. **Matières** : seuls les pièges et le pilote du chevalier utilisent Metal / Slate ; tout le reste est SmoothPlastic, conforme à la règle de palette.
+
+### Style cible proposé : UN seul style pour les monstres de combat
+
+**Blocs arrondis en plastique lisse, une pièce par membre, couleurs plates.**
+
+Pourquoi (d'après les docs, pas d'après un rendu) : tous les modèles Blender approuvés des lots documentés suivent cette convention écrite ci-dessus : « tout en plastique lisse », « bords arrondis (bevel de 0,1 à 0,2 stud) sur tous les blocs », une couleur par rôle (suffixe `Nom__RRGGBB`), pièces séparées nommées pour l'animation par code (`Corps`, `Tete`, `Patte_*`...). C'est le cas des gardiens (lot 1 : `Corps`, `Tete`, `Oreille_*`, `Patte_*`, `Queue`), du château (lot 3 : murs, tours, coffre, torches, `Armure`, `Bouclier`), des pets (lots 4 et 11 : `Corps`, `Tete`, `Yeux`, `Oreilles`, `Queue`, `Pattes`, plafond 40 Parts) et des demandes de qualité visuelle du décor (falaises « voxel / low-poly », bords nets). La seule forme franchement lisse est le boulet, un accessoire, pas un mob. Choisir les formes lisses (sphères) obligerait à redemander plus de modèles qu'aujourd'hui ; les blocs arrondis prolongent ce qui existe.
+
+Règles communes à demander pour chaque mob :
+- Silhouette lisible de loin : une forme dominante (tronc massif) + 2 ou 3 repères (oreilles, queue, cornes, lance), pas de détail sous 0,3 stud.
+- Palette : couleur de rôle de la palette ci-dessus (`corps`, `ventre`, `yeux`, `accent`) ; yeux en pièce séparée `Yeux` (la lueur Neon est ajoutée par le code, pas par le FBX).
+- Poses neutres (pas de T-pose), devant vers -Z, origine au centre du socle, pieds sur y = 0.
+- Aucun métal sauf pièce d'armure nommée `Armure` / `Fer`.
+
+### À demander à Blender, mob par mob (par ordre d'effet visible)
+
+| Mob à retoucher | Demande | Taille (studs) | Silhouette | Palette (suffixes) | Pièces max | Pièces nommées |
+|---|---|---|---|---|---|---|
+| **Pets en combat** (puppets de `BattleScene`) : pas un modèle par espèce, mais UN gabarit de bloc commun, `combat.puppet` (clé à créer, aucun id inventé) | Version « combat » à peu de pièces d'un pet : corps en bloc arrondi, tête en bloc, deux yeux, variantes d'oreilles (rondes, pointues, longues, tombantes), queue, bec ; le code recolore par espèce (`Corps__RRGGBB` lu comme couleur de base) et assemble les variantes | 3 de haut (fenêtre de la scène : socle de 3 de rayon) | Trapue, tête = 40 % de la hauteur, devant -Z | corps = couleur de l'espèce (remplacée par le code), yeux `1A1A1E`, ventre = corps éclairci | 14 (budget d'instances client : une scène de 2 créatures doit rester sous 220 instances en tout) | `Corps`, `Tete`, `Yeux`, `Oreille_G`, `Oreille_D`, `Queue`, `Bec`, `Patte_G`, `Patte_D` |
+| Chevalier du château (`guards.knight`) | Retoucher en blocs arrondis, armure par pièces séparées, plastique lisse (supprimer l'aspect pierre brillante) ; **fournir aussi un repli** : le code doit pouvoir construire une silhouette sans le modèle (voir `Builder.dressKnights`) | 4,5 de haut (valeur réelle du code ; la demande initiale disait 6, trancher) | Humanoïde carré, casque à plume, lance et bouclier | armure `6E7280`, plume `C8323C`, bouclier `FFCD46`, corps `8E93A0` | 60 | `Corps`, `Casque`, `Lance`, `Bouclier`, `Bras_G`, `Bras_D`, `Jambe_G`, `Jambe_D` |
+| Gardien Gus (`guards.dog`) | Vérifier qu'il suit le style (bloc arrondi, oreilles tombantes) ; si le Blender livré est lisse, le refaire en blocs | 2,5 de haut, ~4 de long | Chien trapu | corps `A0784A`, collier `C8323C`, nez `1E1E1E` | 40 | `Corps`, `Tete`, `Oreille_G`, `Oreille_D`, `Patte_AvG`, `Patte_AvD`, `Patte_ArG`, `Patte_ArD`, `Queue`, `Collier` |
+| Gardienne Mara (`guards.wolf`) | Idem, silhouette plus longue et plus fine que Gus pour qu'on les distingue de loin | 3 de haut, ~6 de long | Loup, museau long, queue touffue | corps `8C8C99`, ventre `D6D6DE`, yeux `FFCD46` | 50 | mêmes pièces que le chien + `Yeux` |
+| Gardien Zed (`guards.bear`) | Idem ; armure en pièces séparées nommées, seule partie métal autorisée | 5 de haut, ~5 de large | Ours massif, épaules larges | corps `6E4C2E`, armure `6E7280`, yeux `C8323C` | 50 | `Corps`, `Tete`, `Bras_G`, `Bras_D`, `Jambe_G`, `Jambe_D`, `Armure`, `Yeux` |
+| Boss de la tour (étages 5, 10, ... 45 : 9 boss) | Variante « boss » du gabarit de pet de combat : même style, +30 % de taille, un accessoire propre (couronne, cornes, chaînes, auréole) en pièce séparée recolorable | 4 de haut | Gabarit commun + accessoire dominant | couleur du pet + accent `FFCD46` | 20 | `Corps`, `Tete`, `Yeux`, `Accessoire` |
+| Tigre, Kraken, Calmar stellaire, Wyrm astral (pets sans Blender) | Déjà demandés dans « pets.* (suite) » ; ne pas les redemander, seulement les faire dans le même style | ~1 de haut | selon l'espèce | une couleur dominante | 40 | `Corps`, `Tete`, `Yeux`, `Oreilles`, `Queue`, `Pattes` |
+
+À ne pas demander : PNJ humanoïdes (Pip, Nora, Lina, Bruno, Maître Kaï) déjà approuvés, Mère Poule et corbeau (décor et vol, pas des monstres de combat), pièges.
+
+### Points que seul un rendu permet de trancher (à faire par l'utilisateur dans Studio, rien n'a été vu)
+- Les modèles Blender des gardiens et du chevalier sont-ils vraiment lisses ou à blocs arrondis ? L'hypothèse « blocs » vient de la convention écrite, pas d'une capture.
+- La boule de combat jure-t-elle autant qu'on le suppose avec le pet de la base ? Capture comparée à faire (un pet en monde, le même en combat).
