@@ -1806,12 +1806,18 @@ local skipBtn = make("TextButton", { AnchorPoint = Vector2.new(1, 0), Position =
 corner(skipBtn, 9)
 local refreshObjective
 skipBtn.Activated:Connect(function()
+	if state and type(state.onb) == "table" then
+		RAction:FireServer("onbSkip") -- lot 17 : le serveur termine le tutoriel ; l'objectif disparaît au prochain état reçu
+	end
 	onboardSkipped = true
 	skipBtn.Visible = false
 	refreshObjective()
 end)
 -- Étape courante des 3 premières secondes (nil : terminé, passé ou joueur déjà expérimenté).
 local function onboardStep()
+	if state and type(state.onb) == "table" then -- lot 17 : séquence serveur des 5 premières minutes (prioritaire sur l'ancienne, texte et cible décidés par le serveur)
+		return { index = state.onb.index, total = state.onb.total, text = state.onb.text, target = state.onb.target }
+	end
 	if onboardSkipped or not state then
 		return nil
 	end

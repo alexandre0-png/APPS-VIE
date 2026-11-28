@@ -71,6 +71,7 @@ local L15 = {
 	Npc = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Npc")), Rewards = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Rewards")),
 	Duel = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Duel")), -- lot 13 : duel local, ligues, remise de saison (module pur) ; état des duels dans L15.duel (bloc « Duel local »)
 	remote = newRemote("Npc"), books = {}, assets = nil, decorKey = nil,
+	Onb = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Onboarding")).new(Config.ONBOARDING), -- lot 17 : onboarding des 5 premières minutes (règles pures ; fonctions L15.onb* plus bas)
 }
 -- Construit (ou reconstruit : idempotent) le kiosque dans World. assets = nil : repli procédural immédiat, sans avertissement.
 function K8.build(assets)
@@ -529,6 +530,7 @@ local function snapshot(s)
 		pbCount = #d.pb,
 		cal = Lot7.Cal.snapshot and Lot7.Cal.snapshot(s) or nil, -- lot 9b : vue du calendrier (le jour est décidé ICI, jamais par le client)
 		l16 = Lot7.L16.view and Lot7.L16.view(s) or nil, -- lot 16 : achats uniques, saison (résumé), débordement, Double chance, pose, tickets d'arène
+		onb = L15.Onb.view(s.data.onb, os.time()), -- lot 17 : étape de l'onboarding { index, total, text, target, prog, goal } ; nil = terminé, passé ou coupé
 	}
 end
 
@@ -2376,7 +2378,9 @@ local function slowTick(dt)
 			if active then
 				d.coins += inc * dt
 				qp(s, "earn", inc * dt)
+				L15.onb(s, "earn", inc * dt) -- lot 17 : étape « premier revenu » (revenu réellement versé)
 			end
+			L15.onbTick(s, dt) -- lot 17 : faits lus côté serveur (base, éclosion, niveau de maison), 1 fois par seconde
 			Lot7.privStep(s, dt, active) -- tapis privé : un œuf gratuit toutes les 120 s d'activité
 			ensureQuests(s)
 			storyRefresh(s)
@@ -2771,6 +2775,44 @@ function actions.newbieOff(s)
 	end
 end
 
+-- Lot 17 : onboarding. Le serveur décide de tout (Onboarding.lua) : le client ne fournit AUCUN fait, seul « Passer » (onbSkip) existe et ne fait que terminer le tutoriel.
+function L15.onb(s, kind, arg)
+	local d = s.data
+	if not L15.Onb.active(d.onb) then
+		return
+	end
+	local advanced, info = L15.Onb.event(d.onb, kind, arg, os.time())
+	if advanced then
+		if info == "done" then
+			notify(s.player, "🎉 Tutoriel terminé : à toi de jouer !", "buy")
+			tele.event(s.player, "onboarding", "tut_done")
+		else
+			tele.event(s.player, "onboarding", "tut_step" .. tostring(d.onb.step)) -- étape atteinte (2 à 5) ; noms fermés dans Telemetry.ONBOARDING
+		end
+		RState:FireClient(s.player, snapshot(s))
+	end
+end
+
+function L15.onbTick(s, dt)
+	if not L15.Onb.active(s.data.onb) then
+		return
+	end
+	s.onbT = (s.onbT or 0) + dt
+	if s.onbT < 1 then
+		return
+	end
+	s.onbT = 0
+	local root = getRoot(s.player)
+	L15.onb(s, "tick", { near = root ~= nil and s.plot ~= nil and alive(s.player) and inPlot(s, root), hatched = s.data.hatched, level = s.baseLevel or 1 })
+end
+
+function actions.onbSkip(s)
+	if L15.Onb.skip(s.data.onb) then
+		tele.event(s.player, "onboarding", "tut_skip")
+		RState:FireClient(s.player, snapshot(s))
+	end
+end
+
 function actions.sync(s)
 	sync(s)
 end
@@ -2904,6 +2946,7 @@ function actions.rebirth(s)
 	-- (once, starter), passe de combat (season), calendrier et séries (cal, calStreak, calLast, grace, streak), quêtes (jour, semaine, bonus), plumes d'événement,
 	-- sac d'œufs et coffre de débordement, PNJ, réglages, combat / ligues / duels (battle), jetons, parchemins, plumes, titres, cosmétiques, pose, boosts
 	-- payés ou gagnés, XP de dresseur, tickets d'arène, temps de jeu (protection débutant), reçus, succès, index, journal de vol, Corbeau, tapis privé.
+	-- Lot 17 : onb (onboarding) n'est PAS dans la liste : un tutoriel terminé ou passé ne repart jamais à la renaissance.
 	local fresh = Data.default()
 	dropCarry(s)
 	for _, k in ipairs({ "coins", "up", "slots", "equip", "pendingAway", "last" }) do
@@ -3630,6 +3673,7 @@ function actions.towerStart(s, floor)
 		return
 	end
 	b.fights += 1
+	L15.onb(s, "arena") -- lot 17 : étape « premier pet à l'Arène » (le combat est accepté et l'équipe n'est pas vide)
 	local seed = rng:NextInteger(1, 2147483000)
 	L15.boostUnits(mine) -- lot 15 : type « en forme » de la semaine (+20 % d'attaque, PvE seulement)
 	s.battle = { st = Battle.new(seed, mine, Battle.towerTeam(Config, floor)), floor = floor, deadline = os.clock() + TW.turnSeconds }
@@ -5988,6 +6032,7 @@ do
 		offerState[s.player] = Offers.newState(now)
 		S.migrate(s.data, now)
 		tele.event(s.player, "version", Config.BUILD)
+		L15.Onb.resume(s.data.onb, os.time()) -- lot 17 : l'étape en cours repart de maintenant
 		if s.data.hatched == 0 then
 			tele.event(s.player, "onboarding", "join")
 		end

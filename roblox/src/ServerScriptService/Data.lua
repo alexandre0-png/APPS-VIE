@@ -15,6 +15,7 @@ local Rewards = require(game:GetService("ReplicatedStorage"):WaitForChild("Share
 local BattleRewards = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("BattleRewards")) -- lot 12 B : assainissement de battle.pendingPick et de boosts
 local PetXp = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("PetXp")) -- lot 12 B : assainissement de trainer (et de slot.x, déjà fait plus bas)
 local SeasonMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Season")).new(Config, require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("SeasonData"))) -- lot 16 : migration du passe de combat
+local OnbMod = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Onboarding")).new(Config.ONBOARDING) -- lot 17 : onboarding (champ onb)
 local Ranked = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Ranked")) -- lot 14 : assainissement de battle.live
 local Diag = require(script.Parent:WaitForChild("Diag"))
 
@@ -236,6 +237,7 @@ function Data.default()
 	end
 	d.slots[1] = { k = "e", t = 1, ends = os.time() + Config.FIRST_EGG_SECONDS, shield = 0, rv = true } -- œuf de départ (gratuit : non indemnisable)
 	SeasonMod.migrate(d, os.time()) -- lot 16 : profil neuf avec sa saison
+	d.onb = OnbMod.default() -- lot 17 : onboarding démarré (merge() le remplace par la migration du profil sauvegardé)
 	return d
 end
 
@@ -486,6 +488,8 @@ local function merge(saved)
 	-- lot 16 : passe de combat (Season.migrate assainit, bascule la saison, verse l'ancien seasonXp une seule fois), débordement, achats uniques, Double chance, pose, tickets
 	d.season = type(saved.season) == "table" and saved.season or nil
 	SeasonMod.migrate(d, os.time())
+	-- lot 17 : onboarding, SANS changement de version (v13 reste v13) ; profil sans onb : neuf = séquence, existant = terminé (legacy), onb présent = assaini seulement ; idempotent
+	d.onb = OnbMod.migrate(saved)
 	if type(saved.overflow) == "table" then
 		for t = 1, #Config.TIERS do
 			local v = saved.overflow[tostring(t)]

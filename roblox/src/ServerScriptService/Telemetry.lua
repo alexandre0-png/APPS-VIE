@@ -32,7 +32,7 @@ Telemetry.METRICS = {
 --   niveau de maison, étage, palier de saison), version (LogCustomEvent « version_<Config.BUILD> », une fois par session).
 Telemetry.KINDS = { custom = true, economy = true, funnel = true, onboarding = true, progression = true, version = true }
 Telemetry.FUNNEL = { shop_view = 1, card_open = 2, prompt = 3, receipt = 4 }
-Telemetry.ONBOARDING = { join = 1, first_hatch = 2, first_battle_win = 3, first_shop_view = 4 }
+Telemetry.ONBOARDING = { join = 1, first_hatch = 2, first_battle_win = 3, first_shop_view = 4, tut_step2 = 5, tut_step3 = 6, tut_step4 = 7, tut_step5 = 8, tut_done = 9, tut_skip = 10 } -- lot 17 : étapes du tutoriel serveur (une par étape franchie, 3 s minimum entre deux : sous le débit de la file)
 Telemetry.PROGRESSION = { house = true, tower = true, season = true }
 Telemetry.QUEUE_MAX = 16
 Telemetry.GAP = 1
