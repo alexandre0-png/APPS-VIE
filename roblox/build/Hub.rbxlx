@@ -273,7 +273,7 @@ Config.PASSES = {
 	Speed = { id = 2092253306, name = "Vitesse +20 %", emoji = "👟", desc = "Cours 20 % plus vite, pour toujours." },
 	VipBase = { id = 2094209172, name = "Base VIP", emoji = "👑", desc = "Boucliers d'œufs x2 et bonus quotidien x2." },
 	ExtraSlots = { id = 2098181699, name = "+4 emplacements", emoji = "🧺", desc = "4 emplacements d'œufs en plus dans ta base, pour toujours (jusqu'à 20)." },
-	PrivateBelt = { id = 2098265697, name = "Tapis privé", emoji = "🛤️", desc = "Un petit tapis au milieu de ta base : un œuf gratuit toutes les 2 min tant que tu joues (probabilités du tapis standard, affichées).", random = true },
+	PrivateBelt = { id = 2098265697, name = "Tapis privé", emoji = "🛤️", desc = "Un petit tapis au milieu de ta base : un œuf gratuit toutes les 3 min tant que tu joues (probabilités du tapis standard, affichées).", random = true },
 	-- Lot 16 : passes créés par la gestion (2026-11-26)
 	EggBagPlus = { id = 2099454839, name = "Sac d'œufs +10", emoji = "🎒", desc = "Ton sac d'œufs passe de 10 à 20 places, pour toujours." },
 	Collector = { id = 2099556764, name = "Collectionneur", emoji = "📒", desc = "Un pet suiveur de plus (4 au lieu de 3), des indices de silhouette dans la collection." },
@@ -12142,7 +12142,7 @@ I.EggR2 = egg(2, "Peu commun", UP_HEAD)
 I.EggR3 = egg(3, "Rare", UP_HEAD)
 I.EggR4 = egg(4, "Épique", UP_HEAD)
 I.EggR5 = egg(5, "Légendaire", UP_HEAD)
-I.ExclusiveEgg = egg(6, "Mythique", UP_HEAD .. " Ex-« Œuf exclusif Mythique » : à ne pas confondre avec la rareté Exclusif.")
+I.ExclusiveEgg = egg(6, "Mythique", UP_HEAD .. " Œuf de rareté Mythique (ancien nom « Œuf exclusif Mythique ») : à ne pas confondre avec l'Œuf Exclusif (rareté Exclusif).")
 I.EggR7 = egg(7, "Ultra Rare", FIXED_HEAD)
 I.EggSecret = egg(8, "Secret", FIXED_HEAD .. " Masqué tant qu'aucune espèce Secret n'est publiée.")
 I.EggExclusive = egg(9, "Exclusif", FIXED_HEAD .. " Les espèces Exclusif sont liées à une fenêtre (fête limitée ou saison du passe de combat) : l'œuf n'est en vente que pendant une fenêtre ouverte et l'espèce est tirée au sort parmi celles de la fenêtre en cours (table affichée), comme la taille et la mutation. Masqué hors fenêtre.", "ne donne aucune force en combat, ne protège pas du vol et rapporte moins qu'un Secret")
@@ -12164,7 +12164,7 @@ I.LuckPotion = {
 I.GoldenBelt = {
 	cat = "luck", icon = "r_mystere", title = "Tapis doré",
 	def = "10 min : le tapis du marché donne des œufs plus vite et de meilleure rareté, pour tous.",
-	detail = "Pendant 10 min, le tapis livre un œuf plus souvent, avec la table « dorée » (affichée sur le tapis et avant l'achat). Profite à tout le serveur. Durées cumulables.",
+	detail = "Pendant 10 min, le tapis livre un œuf toutes les 4 s au lieu de 5, avec la table « dorée » (affichée sur le tapis et avant l'achat). Profite à tout le serveur. Durées cumulables.",
 	notDo = NO_POWER, chance = "oui : la rareté de chaque œuf du tapis est tirée au sort avec la table dorée, affichée avant l'achat et sur le tapis", limit = "aucune limite", also = { "eggs" },
 }
 I.ServerLuck = {
@@ -12199,8 +12199,8 @@ I.Speed = {
 }
 I.PrivateBelt = {
 	cat = "luck", icon = "egg_r1", title = "Tapis privé",
-	def = "Un petit tapis dans ta base : un œuf gratuit toutes les 2 min quand tu joues.",
-	detail = "Un œuf gratuit toutes les 2 min tant que tu joues, 3 en attente au plus. La rareté de chaque œuf est tirée au sort avec la table standard du tapis, affichée avant l'achat.",
+	def = "Un petit tapis dans ta base : un œuf gratuit toutes les 3 min quand tu joues.",
+	detail = "Un œuf gratuit toutes les 3 min tant que tu joues, 3 en attente au plus. La rareté de chaque œuf est tirée au sort avec la table standard du tapis, affichée avant l'achat.",
 	notDo = NO_POWER, chance = "oui : la rareté de chaque œuf gratuit est tirée au sort (table affichée) ; rien n'est promis", limit = "achat unique", also = { "eggs" },
 }
 I.Lucky2 = {

@@ -269,7 +269,7 @@ Config.PASSES = {
 	Speed = { id = 2092253306, name = "Vitesse +20 %", emoji = "👟", desc = "Cours 20 % plus vite, pour toujours." },
 	VipBase = { id = 2094209172, name = "Base VIP", emoji = "👑", desc = "Boucliers d'œufs x2 et bonus quotidien x2." },
 	ExtraSlots = { id = 2098181699, name = "+4 emplacements", emoji = "🧺", desc = "4 emplacements d'œufs en plus dans ta base, pour toujours (jusqu'à 20)." },
-	PrivateBelt = { id = 2098265697, name = "Tapis privé", emoji = "🛤️", desc = "Un petit tapis au milieu de ta base : un œuf gratuit toutes les 2 min tant que tu joues (probabilités du tapis standard, affichées).", random = true },
+	PrivateBelt = { id = 2098265697, name = "Tapis privé", emoji = "🛤️", desc = "Un petit tapis au milieu de ta base : un œuf gratuit toutes les 3 min tant que tu joues (probabilités du tapis standard, affichées).", random = true },
 	-- Lot 16 : passes créés par la gestion (2026-11-26)
 	EggBagPlus = { id = 2099454839, name = "Sac d'œufs +10", emoji = "🎒", desc = "Ton sac d'œufs passe de 10 à 20 places, pour toujours." },
 	Collector = { id = 2099556764, name = "Collectionneur", emoji = "📒", desc = "Un pet suiveur de plus (4 au lieu de 3), des indices de silhouette dans la collection." },

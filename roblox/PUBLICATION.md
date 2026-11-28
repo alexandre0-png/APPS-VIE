@@ -147,9 +147,9 @@ Bandeaux et icônes : `publication/art/` (icône 512 px des 6 premiers achats ; 
 
 | Offre | Ce qui est tiré au sort | Probabilités |
 |---|---|---|
-| Œuf exclusif Mythique | Taille et mutation du pet (la rareté Mythique est fixe et annoncée) | Tables « taille » et « mutation » du menu Plus (`Config.oddsText()`) |
-| Tapis privé (pass) | Rareté de l'œuf gratuit (toutes les 2 min d'activité, 3 en attente au plus) | Table STANDARD du tapis : Commun 62 %, Rare 26 %, Épique 9 %, Légendaire 2,6 %, Mythique 0,37 %, Secret 0,03 % |
-| Tapis doré (produit) | Rareté des œufs du tapis pendant 10 min (3 s au lieu de 5) | Table DORÉE : 40 / 34 / 18 / 6,5 / 1,35 / 0,15 % (affichée sur le panneau du tapis, en surbrillance quand elle est active) |
+| Œuf Mythique (clé ExclusiveEgg) | Taille et mutation du pet (la rareté Mythique est fixe et annoncée) | Tables « taille » et « mutation » du menu Plus (`Config.oddsText()`) |
+| Tapis privé (pass) | Rareté de l'œuf gratuit (toutes les 3 min d'activité, 3 en attente au plus) | Table STANDARD du tapis (`Config.BELT.weights.normal`, raretés sans espèce reportées vers le bas ; texte exact : `Config.beltOddsText("normal")`, affiché sur le panneau et avant l'achat) |
+| Tapis doré (produit) | Rareté des œufs du tapis pendant 10 min (4 s au lieu de 5) | Table DORÉE (`Config.BELT.weights.golden` ; texte exact : `Config.beltOddsText("golden")`, affichée sur le panneau du tapis, en surbrillance quand elle est active) |
 | Potion de chance, Chance +10 %, Pluie de chance pour tous | Amélioration d'UN cran de rareté à l'éclosion | Valeurs fixes affichées : base 5 %, +25 points (potion), +10 points (passe), +5 points (pluie), plafond 70 % ; jamais de rétrogradation |
 
 Aucune offre ne vend un œuf dont la rareté est tirée au sort sans que la table soit visible avant l'achat (panneau du tapis, menu Plus, description de l'offre « 🎲 Probabilités affichées »).

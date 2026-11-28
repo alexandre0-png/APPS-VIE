@@ -630,4 +630,22 @@ return function(env)
 	check("un reçu = un crédit : nombre de reçus mémorisés = reçus distincts crédités", count(sim.receipts) == count(unique) and not broke)
 	check("aucun œuf perdu : base + sac + débordement = œufs octroyés", stored == eggsGranted)
 	check("pièces jamais négatives, base <= cap, sac <= taille", sim.coins >= 0 and #sim.eggBag <= Full.EGG_BAG.size)
+	---------------------------------------------------------------- C8 : renommage « Œuf Mythique », descriptions des tapis = valeurs réelles de Config
+	suite("C8 : produit ExclusiveEgg affiché « Œuf Mythique » (clé et id inchangés), descriptions des tapis doré et privé alignées sur Config.BELT")
+	local function hasTxt(str, frag)
+		return type(str) == "string" and str:find(frag, 1, true) ~= nil
+	end
+	check("ExclusiveEgg : nom affiché « Œuf Mythique » (Config.PRODUCTS et fiche), rareté 6, clé et id 3734229320 inchangés (achats existants intacts)",
+		Real.PRODUCTS.ExclusiveEgg.name == "Œuf Mythique" and Info.ExclusiveEgg.title == "Œuf Mythique" and Real.PRODUCTS.ExclusiveEgg.id == 3734229320 and Data.ENTRIES.ExclusiveEgg.id == 3734229320 and Data.ENTRIES.ExclusiveEgg.eggTier == 6)
+	check("Aucun texte affiché n'appelle encore le produit « Œuf exclusif Mythique » comme nom (seulement « ancien nom »)",
+		not hasTxt(Real.PRODUCTS.ExclusiveEgg.desc, "exclusif Mythique") and hasTxt(Info.ExclusiveEgg.detail, "ancien nom") and Info.EggExclusive.title == "Œuf Exclusif")
+	local B = Real.BELT
+	local privMin = tostring(math.floor(B.private.interval / 60))
+	check("Tapis privé : « toutes les " .. privMin .. " min » et « " .. B.private.pending .. " en attente » (Config.BELT.private) dans la fiche et la description du passe",
+		B.private.interval % 60 == 0 and hasTxt(Info.PrivateBelt.def, "toutes les " .. privMin .. " min") and hasTxt(Info.PrivateBelt.detail, "toutes les " .. privMin .. " min")
+			and hasTxt(Info.PrivateBelt.detail, B.private.pending .. " en attente") and hasTxt(Real.PASSES.PrivateBelt.desc, "toutes les " .. privMin .. " min") and not hasTxt(Info.PrivateBelt.detail .. Real.PASSES.PrivateBelt.desc, "2 min"))
+	local goldMin = tostring(math.floor(B.golden.seconds / 60))
+	local goldTxt = "toutes les " .. B.golden.interval .. " s au lieu de " .. B.interval
+	check("Tapis doré : « " .. goldTxt .. " » et « " .. goldMin .. " min » (Config.BELT.golden) dans la fiche et la description du produit",
+		hasTxt(Info.GoldenBelt.detail, goldTxt) and hasTxt(Real.PRODUCTS.GoldenBelt.desc, goldTxt) and hasTxt(Info.GoldenBelt.def, goldMin .. " min") and hasTxt(Real.PRODUCTS.GoldenBelt.desc, goldMin .. " min"))
 end
