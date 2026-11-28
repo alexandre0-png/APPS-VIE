@@ -1,0 +1,57 @@
+--- a/roblox/src/ServerScriptService/Builder.lua	2026-11-27 21:14:08.000000000 +0000
++++ b/roblox/src/ServerScriptService/Builder.lua	2026-11-27 21:50:29.002558446 +0000
+@@ -425,13 +425,31 @@
+ 	return clone, lift, labelY
+ end
+ 
+-function Builder.pet(petIdx, sizeIdx, mutIdx)
++-- Idée 2 : forme 2 (f = 2) = même modèle, agrandi de Config.EVOLUTION.visualScale, avec un anneau lumineux (tag EggHalo : tourné par le client).
++-- Aucune nouvelle ressource ; 1 Part de plus. Retourne (lift, labelY) mis à l'échelle. Sans effet pour la forme 1.
++local function evolveLook(model, f, lift, labelY)
++	local evo = Config.EVOLUTION
++	if f ~= 2 or not evo or not model.PrimaryPart then
++		return lift, labelY
++	end
++	local k = evo.visualScale or 1
++	pcall(function()
++		model:ScaleTo(model:GetScale() * k)
++	end)
++	local ext = model:GetExtentsSize()
++	addHalo(model.PrimaryPart, { color = evo.haloColor, transparency = evo.haloTransparency or 0.45, shape = "ring", scale = math.max(ext.X, ext.Z) / 3.2 * 1.15, spin = evo.haloSpin or 0 })
++	model:SetAttribute("Form", 2)
++	return lift * k, labelY * k
++end
++
++function Builder.pet(petIdx, sizeIdx, mutIdx, form)
+ 	local def = Config.PETS[petIdx]
+ 	local size = Config.SIZES[sizeIdx]
+ 	local mut = Config.MUTS[mutIdx]
+ 	local custom, customLift, customLabel = customPet(petIdx, size)
+ 	if custom then
+ 		custom:SetAttribute("Tier", def.tier)
++		customLift, customLabel = evolveLook(custom, form, customLift, customLabel) -- idée 2 : forme 2
+ 		return custom, customLift, customLabel
+ 	end
+ 	local R = 0.9 * math.min(size.scale, 1.6) * math.min(math.max(def.scale or 1, 0.7), 1.3) -- pet procédural : même échelle réduite que les modèles Blender ; lot 11 : taille propre de l'espèce (def.scale, 1 par défaut)
+@@ -601,7 +619,9 @@
+ 	model:SetAttribute("Height", lift)
+ 	CollectionService:AddTag(model, "PetFace") -- visage animé côté client (clignement, regard, bouche)
+ 	model:SetAttribute("Tier", def.tier) -- états des pets (capacité des raretés élevées)
+-	return model, lift, 2.3 * R + 1.5
++	local evoLift, evoLabel = evolveLook(model, form, lift, 2.3 * R + 1.5) -- idée 2 : forme 2 (agrandie, anneau lumineux)
++	model:SetAttribute("Height", evoLift)
++	return model, evoLift, evoLabel
+ end
+ 
+ ---------------------------------------------------------------- Gardien
+@@ -2667,8 +2687,8 @@
+ 	return ok and total or 0, placed
+ end
+ 
+-function Builder.follower(petIdx, sizeIdx, mutIdx)
+-	local model = Builder.pet(petIdx, sizeIdx, mutIdx)
++function Builder.follower(petIdx, sizeIdx, mutIdx, form)
++	local model = Builder.pet(petIdx, sizeIdx, mutIdx, form) -- idée 2 : forme 2 (agrandie de visualScale avant la réduction à 0,45)
+ 	model:ScaleTo(0.45)
+ 	model:SetAttribute("Seed", petIdx * 31 + sizeIdx * 7 + mutIdx)
+ 	return model
